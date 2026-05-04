@@ -12,13 +12,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "LemonSqueezy not configured" }, { status: 500 });
     }
 
-    const { planId, planName, price, customerEmail, isTopUp, orderItemId, packageCode } = await request.json();
+    const { planId, planName, price, customerEmail, isTopUp, orderItemId, packageCode, locale = "en" } = await request.json();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     // Build success URL based on whether it's a top-up
-    let successUrl = `${appUrl}/checkout?success=true`;
+    let successUrl = `${appUrl}/${locale}/checkout?success=true`;
     if (isTopUp) {
-      successUrl = `${appUrl}/topup?success=true&orderItemId=${orderItemId}&packageCode=${packageCode || ""}`;
+      successUrl = `${appUrl}/${locale}/topup?success=true&orderItemId=${orderItemId}&packageCode=${packageCode || ""}`;
     }
 
     const res = await fetch(`${LEMON_API}/checkouts`, {

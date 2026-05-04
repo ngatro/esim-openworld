@@ -67,7 +67,7 @@ async function getAccessToken(): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    const { planId, planName, price, currency = "USD", customerEmail, isTopUp, orderItemId, packageCode, periodNum, customData } = await request.json();
+    const { planId, planName, price, currency = "USD", customerEmail, isTopUp, orderItemId, packageCode, periodNum, customData, locale = "en" } = await request.json();
 
     if (!price || price <= 0) {
       return NextResponse.json({ error: "Invalid price" }, { status: 400 });
@@ -91,13 +91,13 @@ export async function POST(request: Request) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     // Build return URL based on whether it's a top-up or new order
-    let returnUrl = `${appUrl}/checkout?success=true&planId=${planId}`;
+    let returnUrl = `${appUrl}/${locale}/checkout?success=true&planId=${planId}`;
     if (isTopUp) {
-      returnUrl = `${appUrl}/topup?success=true&orderItemId=${orderItemId}&packageCode=${packageCode || ""}`;
+      returnUrl = `${appUrl}/${locale}/topup?success=true&orderItemId=${orderItemId}&packageCode=${packageCode || ""}`;
     }
 
     // Build cancel URL with necessary metadata to resume order without localStorage
-    let cancelUrl = `${appUrl}/checkout?cancelled=true&planId=${planId}`;
+    let cancelUrl = `${appUrl}/${locale}/checkout?cancelled=true&planId=${planId}`;
     if (customData?.isTopupMode) {
       cancelUrl += `&mode=topup&days=${customData.selectedDuration || ''}`;
       if (customData.topupPackageCode) {

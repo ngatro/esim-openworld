@@ -135,7 +135,7 @@ export default function CheckoutPage() {
       if (urlPlanId) {
         createPendingOrder(urlPlanId, qty, urlTopupPackageCode || undefined).then(orderId => {
           if (orderId) {
-            router.replace("/orders?pending=" + orderId);
+            router.replace(`/${locale}/orders?pending=` + orderId);
           } else {
             setError("Payment cancelled - please try again");
           }
@@ -148,7 +148,7 @@ export default function CheckoutPage() {
         if (savedPlanId) {
           createPendingOrder(savedPlanId, savedQty, savedTopupPackageCode || undefined).then(orderId => {
             if (orderId) {
-              router.replace("/orders?pending=" + orderId);
+              router.replace(`/${locale}/orders?pending=` + orderId);
             } else {
               setError("Payment cancelled - please try again");
             }
@@ -199,7 +199,7 @@ export default function CheckoutPage() {
             const item = data.order.orderItems?.[0];
             if (data.alreadyProcessed) {
               // Order already processed, redirect to orders
-              router.replace("/orders");
+              router.replace(`/${locale}/orders`);
               return;
             }
             setSuccess({
@@ -624,7 +624,7 @@ const isUnlimited = plan.dataAmount >= 999;
     <div className="min-h-screen bg-orange-50 text-slate-800 py-6 sm:py-12">
       <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
         <nav className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 mb-6 sm:mb-8">
-          <Link href="/" className="hover:text-orange-600">{t("common.home")}</Link>
+          <Link href={`/${locale}`} className="hover:text-orange-600">{t("common.home")}</Link>
           <span>/</span>
           <Link href={`/${locale}/plans`} className="hover:text-orange-600">{t("common.plans")}</Link>
           <span>/</span>

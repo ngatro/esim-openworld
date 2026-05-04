@@ -4,22 +4,24 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useUI } from "@/components/providers/UIProvider";
+import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
   const { openLogin } = useUI();
+  const { locale } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
     if (!authLoading) {
       if (user) {
-        router.push("/");
+        router.push(`/${locale}`);
       } else {
         openLogin();
-        router.push("/");
+        router.push(`/${locale}`);
       }
     }
-  }, [user, authLoading, router, openLogin]);
+  }, [user, authLoading, router, locale, openLogin]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-orange-50">

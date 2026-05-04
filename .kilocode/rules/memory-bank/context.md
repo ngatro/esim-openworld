@@ -296,3 +296,8 @@ Create `src/app/api/[route]/route.ts`
    - src/app/[lang]/esim/[country]/page.tsx (page heading)
    - src/app/[lang]/plans/page.tsx (destination card title)
   Now when countryId is undefined or translation missing, displays fallback (countryId, destination name, or "Unknown") instead of raw key "countries.undefined".
+| 2026-05-04 | Added locale parameter to API routes for proper internationalization in return URLs:
+   - PayPal route: Added locale to success/cancel URLs
+   - Forgot Password route: Added locale to reset URL
+   - LemonSqueezy route: Added locale to success URL
+   - Reset Password route: Added locale to response

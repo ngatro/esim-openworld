@@ -357,7 +357,7 @@ export default function OrdersPage() {
                                           const plan = (item as { plan?: { supportTopUpType?: number } }).plan;
                                           if (plan?.supportTopUpType === 2 || plan?.supportTopUpType === 3) {
                                             return (
-                                              <Link href={`/topup?iccid=${item.esimIccid}`}>
+                                              <Link href={`/${locale}/topup?iccid=${item.esimIccid}`}>
                                                 <button className="mt-3 w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors">
                                                   {plan.supportTopUpType === 3 ? "↻ Extend Days" : "+ Top-up Data"}
                                                 </button>

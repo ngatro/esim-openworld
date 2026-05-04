@@ -80,7 +80,7 @@ export default function EsimDataTypeModal({
   onClose,
   config,
 }: EsimDataTypeModalProps) {
-  const { t, formatPrice } = useI18n();
+  const { t, formatPrice, locale } = useI18n();
   const [imgError, setImgError] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [networkList, setNetworkList] = useState<any[]>([]);
@@ -464,7 +464,7 @@ return (
 
               {exactPlan ? (
                 <Link 
-                  href={`/checkout?planId=${exactPlan.id}&qty=${quantity}${
+                  href={`/${locale}/checkout?planId=${exactPlan.id}&qty=${quantity}${
                   // Nếu số ngày chọn khác số ngày gốc của plan, hoặc đang ở chế độ Topup
                   (selectedDuration !== exactPlan.durationDays || isUsingTopUp) 
                     ? `&mode=topup&days=${selectedDuration}${topupPackage ? `&topupId=${topupPackage.id}` : ''}` 

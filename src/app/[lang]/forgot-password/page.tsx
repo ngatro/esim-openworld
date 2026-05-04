@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-800 mb-2">Check Your Email</h1>
           <p className="text-slate-600 mb-6">We sent a password reset link to {email}</p>
-          <Link href="/login" className="text-orange-500 hover:text-orange-600 font-medium">
+          <Link href={`/${locale}/login`} className="text-orange-500 hover:text-orange-600 font-medium">
             Back to Login
           </Link>
         </div>
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
 
         <p className="text-center mt-6 text-slate-500">
           Remember your password?{" "}
-          <Link href="/login" className="text-orange-500 hover:text-orange-600 font-medium">
+          <Link href={`/${locale}/login`} className="text-orange-500 hover:text-orange-600 font-medium">
             Sign in
           </Link>
         </p>

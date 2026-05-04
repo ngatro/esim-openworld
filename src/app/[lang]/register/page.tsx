@@ -1,25 +1,26 @@
 "use client";
-
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useUI } from "@/components/providers/UIProvider";
+import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function RegisterPage() {
   const { user, loading: authLoading } = useAuth();
   const { openRegister } = useUI();
+  const { locale } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
     if (!authLoading) {
       if (user) {
-        router.push("/");
+        router.push(`/${locale}/`);
       } else {
         openRegister();
-        router.push("/");
+        router.push(`/${locale}/`);
       }
     }
-  }, [user, authLoading, router, openRegister]);
+  }, [user, authLoading, router, locale, openRegister]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-orange-50">
