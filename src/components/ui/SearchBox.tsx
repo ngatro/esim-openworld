@@ -19,7 +19,7 @@ interface CountryItem extends CountryInfo {
 const COUNTRY_DATA = countryDataRaw as Record<string, CountryInfo>;
 
 export default function SmartSearchBox() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<CountryItem[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -91,7 +91,7 @@ const fuse = useMemo(() => {
     .replace(/\s+/g, '-'); // Thay tất cả khoảng trắng bằng -
 
   // Luôn đẩy sang link tên đầy đủ cho đồng nhất
-  router.push(`/esim/${slugName}`);
+  router.push(`/${locale}/esim/${slugName}`);
 };
   return (
     <div className="w-full max-w-2xl relative font-sans" ref={wrapperRef}>
