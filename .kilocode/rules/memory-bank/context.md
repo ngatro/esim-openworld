@@ -296,10 +296,5 @@ Create `src/app/api/[route]/route.ts`
    - src/app/[lang]/esim/[country]/page.tsx (page heading)
    - src/app/[lang]/plans/page.tsx (destination card title)
   Now when countryId is undefined or translation missing, displays fallback (countryId, destination name, or "Unknown") instead of raw key "countries.undefined".
-| 2026-05-04 | Added locale parameter to API routes for proper internationalization in return URLs:
-    - PayPal route: Added locale to success/cancel URLs (required from client)
-    - Forgot Password route: Added locale to reset URL (required from client)
-    - LemonSqueezy route: Added locale to success URL (required from client)
-    - Reset Password route: Added locale to response (required from client)
-    - Topup page: Added locale parameter to PayPal call
-    - Checkout page: Added locale parameter to PayPal call
+| 2026-05-04 | **Fixed language switching URL sync issue**: Added `useEffect` in `I18nProvider` to sync the locale context with URL param changes. When navigating between `/en` and `/vi` routes, the URL would change but the i18n context locale would remain stale. The new effect watches `initialLocale` prop changes (from the `[lang]` layout param) and updates the locale state, keeping URL and UI in sync.
+| 2026-05-04 | **Auto-redirect to detected/saved language**: Added redirect in `I18nProvider` so that when a user's saved/cookie locale (or IP-detected locale) doesn't match the URL language prefix, the app automatically redirects to the correct language URL using `router.replace()`. This fixes the issue where Vietnamese users would land on `/en` URLs even though the UI showed Vietnamese content.

@@ -6,7 +6,7 @@ import { sendEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
-    const { email, locale = "en" } = await request.json();
+    const { email } = await request.json();
 
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     });
 
     // Send reset email
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://owsim.com"}/${locale}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://owsim.com"}/reset-password?token=${resetToken}`;
     
     await sendEmail({
       to: email,

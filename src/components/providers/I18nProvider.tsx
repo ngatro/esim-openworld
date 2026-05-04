@@ -6,6 +6,7 @@ import vi from "@/messages/vi.json";
 import de from "@/messages/de.json";
 import fr from "@/messages/fr.json";
 import { formatCurrency, LOCALE_TO_CURRENCY, DEFAULT_RATES, type ExchangeRates } from "@/lib/currency";
+import { useRouter, usePathname } from "next/navigation";
 
 export type Locale = "en" | "vi" | "de" | "fr";
 
@@ -83,6 +84,15 @@ export function I18nProvider({ children, initialRates, initialLocale }: I18nProv
   const [locale, setLocaleState] = useState<Locale>(initialLocale || "en");
   const [isReady, setIsReady] = useState(false);
   const [rates, setRates] = useState<ExchangeRates>(initialRates || DEFAULT_RATES);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Sync locale with URL param changes (when navigating between language routes)
+  useEffect(() => {
+    if (initialLocale) {
+      setLocaleState(initialLocale);
+    }
+  }, [initialLocale]);
 
   useEffect(() => {
     async function initLocale() {
@@ -104,6 +114,17 @@ export function I18nProvider({ children, initialRates, initialLocale }: I18nProv
     
     initLocale();
   }, []);
+
+  // Redirect to correct language URL if detected/saved locale doesn't match URL
+  useEffect(() => {
+    if (isReady && initialLocale && initialLocale !== locale) {
+      const currentPathname = pathname;
+      const pathMatch = currentPathname.match(/^\/[a-z]{2}(.*)$/);
+      const basePath = pathMatch ? pathMatch[1] : currentPathname;
+      const newPath = `/${locale}${basePath}`;
+      router.replace(newPath);
+    }
+  }, [isReady, initialLocale, locale, router, pathname]);
 
   useEffect(() => {
     async function loadRates() {
