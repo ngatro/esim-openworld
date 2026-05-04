@@ -67,7 +67,11 @@ async function getAccessToken(): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    const { planId, planName, price, currency = "USD", customerEmail, isTopUp, orderItemId, packageCode, periodNum, customData, locale = "en" } = await request.json();
+    const { planId, planName, price, currency = "USD", customerEmail, isTopUp, orderItemId, packageCode, periodNum, customData, locale } = await request.json();
+
+    if (!locale) {
+      return NextResponse.json({ error: "Locale is required" }, { status: 400 });
+    }
 
     if (!price || price <= 0) {
       return NextResponse.json({ error: "Invalid price" }, { status: 400 });

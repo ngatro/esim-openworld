@@ -363,23 +363,24 @@ export default function CheckoutPage() {
       throw new Error("Failed to create pending order");
     }
 
-    const res = await fetch("/api/payment/paypal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        planId: plan!.id,
-        planName: `${plan!.destination} eSIM`,
-        price: priceDisplay,
-        currency: currency,
-        customerEmail,
-        // Pass top-up metadata (including package code for cancel/resume)
-        customData: {
-          isTopupMode: topupMode,
-          selectedDuration: topupDays > 0 ? topupDays : undefined,
-          topupPackageCode: topupMode && topupPackage ? topupPackage.packageCode : undefined,
-        },
-      }),
-    });
+     const res = await fetch("/api/payment/paypal", {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({
+         planId: plan!.id,
+         planName: `${plan!.destination} eSIM`,
+         price: priceDisplay,
+         currency: currency,
+         customerEmail,
+         locale: locale,
+         // Pass top-up metadata (including package code for cancel/resume)
+         customData: {
+           isTopupMode: topupMode,
+           selectedDuration: topupDays > 0 ? topupDays : undefined,
+           topupPackageCode: topupMode && topupPackage ? topupPackage.packageCode : undefined,
+         },
+       }),
+     });
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "PayPal failed");

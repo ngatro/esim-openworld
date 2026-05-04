@@ -114,22 +114,23 @@ export default function TopUpPage() {
         // Get price in display currency - always convert from USD to display currency
         const priceDisplay = convertFromUSD(selectedPackage.priceUSD || 0, currency, rates);
         
-        const paypalRes = await fetch("/api/payment/paypal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            planId: `topup-${selectedPackage.packageCode}`,
-            planName: `Top-up: ${selectedPackage.name}`,
-            price: priceDisplay,
-            currency: currency,
-            customerEmail: "", // Will be filled from user session
-            isTopUp: true,
-            orderItemId: currentPlan.orderItemId,
-            packageCode: selectedPackage.packageCode,
-            // Pass custom periodNum for flexible top-up
-            periodNum: currentPlan.supportTopUpType === 3 ? extraDays.toString() : undefined,
-          }),
-        });
+         const paypalRes = await fetch("/api/payment/paypal", {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({
+             planId: `topup-${selectedPackage.packageCode}`,
+             planName: `Top-up: ${selectedPackage.name}`,
+             price: priceDisplay,
+             currency: currency,
+             customerEmail: "", // Will be filled from user session
+             isTopUp: true,
+             orderItemId: currentPlan.orderItemId,
+             packageCode: selectedPackage.packageCode,
+             // Pass custom periodNum for flexible top-up
+             periodNum: currentPlan.supportTopUpType === 3 ? extraDays.toString() : undefined,
+             locale: locale,
+           }),
+         });
         
         const paypalData = await paypalRes.json();
         if (!paypalRes.ok) throw new Error(paypalData.error || "PayPal failed");

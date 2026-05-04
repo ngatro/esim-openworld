@@ -12,7 +12,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "LemonSqueezy not configured" }, { status: 500 });
     }
 
-    const { planId, planName, price, customerEmail, isTopUp, orderItemId, packageCode, locale = "en" } = await request.json();
+    const { planId, planName, price, customerEmail, isTopUp, orderItemId, packageCode, locale } = await request.json();
+
+    if (!locale) {
+      return NextResponse.json({ error: "Locale is required" }, { status: 400 });
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     // Build success URL based on whether it's a top-up
