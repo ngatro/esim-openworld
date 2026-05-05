@@ -62,8 +62,10 @@ export default function CheckoutPage() {
   const topupId = searchParams.get("topupId") || "";
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("paypal");
-  const [success, setSuccess] = useState<{ orderId: number; qrCode?: string; activationCode?: string } | null>(null);
-  const [paypalConfigured, setPaypalConfigured] = useState<boolean | null>(null);
+   const [success, setSuccess] = useState<{ orderId: number; qrCode?: string; activationCode?: string } | null>(null);
+   const [paypalConfigured, setPaypalConfigured] = useState<boolean | null>(null);
+   // Track if PayPal return has been processed to avoid duplicate activation
+   const [paymentHandled, setPaymentHandled] = useState(false);
 
   // Check PayPal configuration
   useEffect(() => {
@@ -118,15 +120,15 @@ export default function CheckoutPage() {
       console.error("Failed to create pending order:", err);
       return null;
     }
-  }
+   }
 
-  // Handle PayPal success redirect
-  useEffect(() => {
-    const paypalSuccess = searchParams.get("success");
-    const paypalOrderId = searchParams.get("token"); // PayPal sends order ID as 'token'
-    const cancelled = searchParams.get("cancelled");
+   // Handle PayPal success redirect
+   useEffect(() => {
+     const paypalSuccess = searchParams.get("success");
+     const paypalOrderId = searchParams.get("token"); // PayPal sends order ID as 'token'
+     const cancelled = searchParams.get("cancelled");
 
-    if (cancelled) {
+     if (cancelled) {
       // Prefer URL parameters (embedded in cancel_url) for reliability
       const urlPlanId = searchParams.get("planId") || planId;
       const urlTopupPackageCode = searchParams.get("topupId"); // packageCode from cancel URL
@@ -160,7 +162,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (paypalSuccess === "true" && paypalOrderId) {
+     if (paypalSuccess === "true" && paypalOrderId && !paymentHandled) {
+       setPaymentHandled(true); // Prevent duplicate calls
       // Get planId from localStorage (saved before redirect) or URL
       const savedPlanId = localStorage.getItem("paypal_planId") || planId;
       const savedQty = parseInt(localStorage.getItem("paypal_qty") || "1");
@@ -196,6 +199,9 @@ export default function CheckoutPage() {
         .then((r) => r.json())
         .then((data) => {
           if (data.success && data.order) {
+            // Clean up URL to prevent duplicate processing on refresh
+            router.replace(`/${locale}/checkout?planId=${planId}`, { scroll: false });
+            
             const item = data.order.orderItems?.[0];
             if (data.alreadyProcessed) {
               // Order already processed, redirect to orders
@@ -210,9 +216,13 @@ export default function CheckoutPage() {
             // Clean up localStorage
             localStorage.removeItem("paypal_planId");
             localStorage.removeItem("paypal_qty");
-            // Don't redirect, let user scan QR code
+            localStorage.removeItem("paypal_topupMode");
+            localStorage.removeItem("paypal_topupDays");
+            localStorage.removeItem("paypal_topupPackageCode");
+            localStorage.removeItem("pending_order_id");
           } else {
             setError(data.error || "Payment confirmation failed");
+            setPaymentHandled(false); // Allow retry
           }
         })
         .catch((err) => setError(`Payment confirmation failed: ${err}`))
@@ -403,55 +413,75 @@ export default function CheckoutPage() {
     throw new Error("No approval URL");
   }
   
-  async function handleDirectCheckout() {
-    if (!plan) return;
-    if (!customerEmail) {
-      setError("Email is required to receive your eSIM");
-      return;
-    }
+   async function handleDirectCheckout() {
+     if (!plan) return;
+     if (!customerEmail) {
+       setError("Email is required to receive your eSIM");
+       return;
+     }
 
-    setProcessing(true);
-    setError("");
+     setProcessing(true);
+     setError("");
 
-    try {
-      // For direct checkout, we already have plan loaded, use it directly
-      const actualDuration = topupMode && topupDays > 0 ? topupDays : (plan?.durationDays || 0);
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: [{
-            planId: plan.id,
-            quantity,
-            topupMode,
-            days: topupDays,
-            topupPackageCode: topupPackage?.packageCode || undefined,
-          }],
-          customerName,
-          customerEmail,
-          isTopupMode: topupMode,
-          selectedDuration: actualDuration,
-        }),
-      });
+     try {
+       // Step 1: Create pending order
+       const actualDuration = topupMode && topupDays > 0 ? topupDays : (plan?.durationDays || 0);
+       const res = await fetch("/api/orders", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+           items: [{
+             planId: plan.id,
+             quantity,
+             topupMode,
+             days: topupDays,
+             topupPackageCode: topupPackage?.packageCode || undefined,
+           }],
+           customerName,
+           customerEmail,
+           isTopupMode: topupMode,
+           selectedDuration: actualDuration,
+         }),
+       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Order failed");
-        return;
-      }
+       const data = await res.json();
+       if (!res.ok) {
+         setError(data.error || "Order failed");
+         return;
+       }
 
-      const orderItem = data.order?.orderItems?.[0];
-      setSuccess({
-        orderId: data.order.id,
-        qrCode: orderItem?.esimQrCode || orderItem?.esimQrImage,
-        activationCode: orderItem?.activationCode,
-      });
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setProcessing(false);
-    }
-  }
+       const orderId = data.order?.id;
+       if (!orderId) {
+         setError("Failed to create order");
+         return;
+       }
+
+       // Step 2: Activate eSIM immediately (direct checkout = paid in full)
+       const activateRes = await fetch(`/api/orders/${orderId}/activate`, {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ force: true }),
+       });
+
+       const activateData = await activateRes.json();
+       if (!activateRes.ok) {
+         console.error("[Direct Checkout] Activation failed:", activateData);
+         setError(activateData.error || "Failed to activate eSIM");
+         return;
+       }
+
+       const orderItem = activateData.order?.orderItems?.[0];
+       setSuccess({
+         orderId: activateData.order.id,
+         qrCode: orderItem?.esimQrCode || orderItem?.esimQrImage,
+         activationCode: orderItem?.activationCode,
+       });
+     } catch {
+       setError("Something went wrong. Please try again.");
+     } finally {
+       setProcessing(false);
+     }
+   }
 
   async function handleCheckout() {
     if (!plan) return;

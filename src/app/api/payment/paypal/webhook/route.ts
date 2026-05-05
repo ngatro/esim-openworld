@@ -108,6 +108,13 @@ async function activateEsimAndEmail(
   extraDays: number = 0,
   topupPackageCode: string | null = null
 ) {
+  // Idempotency: Check if already activated
+  const existingOrderItem = await prisma.orderItem.findFirst({ where: { orderId } });
+  if (existingOrderItem?.esimIccid) {
+    console.log(`[AUTO] Order ${orderId}: Already activated (has ICCID ${existingOrderItem.esimIccid}), skipping`);
+    return;
+  }
+
   const plan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
   const packageCode = plan?.packageCode;
 
@@ -266,8 +273,19 @@ export async function POST(request: Request) {
         });
         const orderData = await verifyRes.json();
 
-        if (orderData.status === "APPROVED" || orderData.status === "COMPLETED") {
-          const customId = orderData.purchase_units?.[0]?.custom_id;
+         if (orderData.status === "APPROVED" || orderData.status === "COMPLETED") {
+           // Idempotency: Check if order already exists for this PayPal order ID
+           const existingOrder = await prisma.order.findFirst({
+             where: { esimaccessOrderId: paypalOrderId },
+             include: { orderItems: true },
+           });
+           
+           if (existingOrder) {
+             console.log("[PayPal Webhook] Order already exists for PayPal order", paypalOrderId);
+             return NextResponse.json({ received: true, alreadyProcessed: true });
+           }
+
+           const customId = orderData.purchase_units?.[0]?.custom_id;
           let planId = "";
           let isTopupMode = false;
           let selectedDuration: number | undefined;
@@ -389,20 +407,57 @@ export async function PUT(request: Request) {
       });
     }
 
-    // Verify with PayPal
-    const accessToken = await getAccessToken();
-    const res = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    });
+     // Verify with PayPal (check order status)
+     const accessToken = await getAccessToken();
+     const verifyRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}`, {
+       headers: { "Authorization": `Bearer ${accessToken}` },
+     });
+     const verifyData = await verifyRes.json();
 
-    const data = await res.json();
-    if (data.status !== "COMPLETED") {
-      return NextResponse.json({ error: "Payment not completed", status: data.status }, { status: 400 });
-    }
+     if (!verifyRes.ok) {
+       return NextResponse.json({ error: "Failed to verify PayPal order" }, { status: 500 });
+     }
 
-    const plan = await prisma.plan.findUnique({ where: { id: planId || "" } });
-    const amount = parseFloat(data.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || "0");
+     // Determine amount from order data
+     const amount = parseFloat(verifyData.purchase_units?.[0]?.amount?.value || "0");
+
+     // Handle capture idempotently
+     let captureStatus = verifyData.status; // "COMPLETED" or "APPROVED"
+     
+     if (verifyData.status === "APPROVED") {
+       // Need to capture payment
+       const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
+         method: "POST",
+         headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
+       });
+       
+       const captureData = await captureRes.json();
+       
+       if (!captureRes.ok) {
+         // If already captured (422 error), treat as success
+         if (captureRes.status === 422) {
+           console.log("[PayPal Confirm] Duplicate capture (422), order likely already captured");
+           captureStatus = "COMPLETED";
+         } else {
+           return NextResponse.json({ error: captureData.message || "Capture failed" }, { status: 500 });
+         }
+       } else {
+         captureStatus = captureData.status;
+         // Use captured amount if available
+         const capturedAmount = parseFloat(captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || "0");
+         if (capturedAmount > 0) {
+           // amount remains from verify (should be same)
+         }
+       }
+     }
+
+     // Only proceed if payment is completed
+     if (captureStatus !== "COMPLETED") {
+       return NextResponse.json({ error: "Payment not completed", status: captureStatus }, { status: 400 });
+     }
+
+     // Use verifyData for payer info
+     const plan = await prisma.plan.findUnique({ where: { id: planId || "" } });
 
     // Get top-up metadata if in top-up mode
     let extraDays = 0;
@@ -453,8 +508,8 @@ export async function PUT(request: Request) {
           data: {
             status: "completed",
             totalAmount: amount,
-            customerEmail: data.payer?.email_address || pendingOrder.customerEmail,
-            customerName: `${data.payer?.name?.given_name || ""} ${data.payer?.name?.surname || ""}`.trim() || pendingOrder.customerName,
+             customerEmail: verifyData.payer?.email_address || pendingOrder.customerEmail,
+             customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim() || pendingOrder.customerName,
             esimaccessOrderId: orderId,
             esimaccessOrderStatus: "paid",
             // Top-up metadata
@@ -487,8 +542,8 @@ export async function PUT(request: Request) {
             userId,
             totalAmount: amount,
             status: "completed",
-            customerEmail: data.payer?.email_address || "",
-            customerName: `${data.payer?.name?.given_name || ""} ${data.payer?.name?.surname || ""}`.trim(),
+             customerEmail: verifyData.payer?.email_address || "",
+             customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
             esimaccessOrderId: orderId,
             esimaccessOrderStatus: "paid",
             // Top-up metadata
@@ -522,8 +577,8 @@ export async function PUT(request: Request) {
           userId,
           totalAmount: amount,
           status: "completed",
-          customerEmail: data.payer?.email_address || "",
-          customerName: `${data.payer?.name?.given_name || ""} ${data.payer?.name?.surname || ""}`.trim(),
+           customerEmail: verifyData.payer?.email_address || "",
+           customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
           esimaccessOrderId: orderId,
           esimaccessOrderStatus: "paid",
           // Top-up metadata

@@ -140,8 +140,8 @@ model Order {
   customerName    String?
   customerEmail   String?
   
-  esimaccessOrderId     String?
-  esimaccessOrderStatus String?
+   esimaccessOrderId     String?   @unique
+   esimaccessOrderStatus String?
   
   // Top-up mode metadata
   isTopupMode     Boolean  @default(false)
