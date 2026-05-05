@@ -74,10 +74,10 @@ async function processTopUp(
 // Activate eSIM for a completed order (called after payment confirmed or for free/gift orders)
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ orderId: string }> }
+  { params }: { params: Promise<{}> }
 ) {
   try {
-    const { orderId } = await params;
+    const { orderId } = await request.json().catch(() => ({}));
     const { force = false } = await request.json().catch(() => ({ force: false }));
 
     const orderIdNum = parseInt(orderId);
