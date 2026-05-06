@@ -670,6 +670,16 @@
   "contactText": "Wenn Sie Fragen zu diesen Nutzungsbedingungen haben, wenden Sie sich bitte an uns.",
   "contactBtn": "Support kontaktieren"
 },
+"supportWidget": {
+    "title": "Kundenbetreuung",
+    "description": "Wählen Sie, wie Sie uns erreichen möchten",
+    "button1": "Live Chat",
+    "button1desc": "Chatten Sie direkt mit uns",
+    "button2": "WhatsApp",
+    "button2desc": "Senden Sie uns eine Nachricht über WhatsApp",
+    "button3": "E-mail",
+    "button3desc": "Senden Sie uns eine E-Mail"
+  },
   "regions": {
     "NA": "Nordamerika",
     "SA": "Südamerika",

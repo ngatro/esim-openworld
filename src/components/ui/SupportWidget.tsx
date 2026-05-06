@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useI18n } from "@/components/providers/I18nProvider";
+import Image from "next/image";
+
 
 declare global {
   interface Window {
@@ -24,9 +27,12 @@ interface TawkSettings {
 export default function SupportWidget() {
   const [phoneNumber, setPhoneNumber] = useState("84912345678");
   const [tawkSettings, setTawkSettings] = useState<TawkSettings>({ tawkPropertyId: "", tawkWidgetId: "" });
+  const [supportEmail, setSupportEmail] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
+
 
   const handleToggle = () => {
     const newState = !isOpen;
@@ -41,6 +47,7 @@ export default function SupportWidget() {
       .then((res) => res.json())
       .then((data) => {
         if (data.whatsappNumber) setPhoneNumber(data.whatsappNumber);
+        if (data.supportEmail) setSupportEmail(data.supportEmail);
         if (data.tawkPropertyId && data.tawkWidgetId) {
           setTawkSettings({ tawkPropertyId: data.tawkPropertyId, tawkWidgetId: data.tawkWidgetId });
         }
@@ -110,8 +117,8 @@ export default function SupportWidget() {
             className="bg-white border border-slate-200 rounded-2xl shadow-xl w-64 mb-3 overflow-hidden"
           >
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3">
-              <h3 className="text-white font-semibold text-sm">Customer Support</h3>
-              <p className="text-white/70 text-xs">Choose how to reach us</p>
+              <h3 className="text-white font-semibold text-sm">{t("supportWidget.title")}</h3>
+              <p className="text-white/70 text-xs">{t("supportWidget.description")}</p>
             </div>
             <div className="p-2">
               <button
@@ -124,8 +131,8 @@ export default function SupportWidget() {
                   </svg>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-slate-800">Live Chat</p>
-                  <p className="text-xs text-slate-500">Chat with us directly</p>
+                  <p className="text-sm font-medium text-slate-800">{t("supportWidget.button1")}</p>
+                  <p className="text-xs text-slate-500">{t("supportWidget.button1desc")}</p>
                 </div>
               </button>
 
@@ -139,23 +146,40 @@ export default function SupportWidget() {
                   </svg>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-slate-800">WhatsApp</p>
-                  <p className="text-xs text-green-600">Quick response</p>
+                  <p className="text-sm font-medium text-slate-800">{t("supportWidget.button2")}</p>
+                  <p className="text-xs text-green-600">{t("supportWidget.button2desc")}</p>
                 </div>
               </button>
 
               <a
-                href="mailto:support@openworldesim.com"
+                href={`mailto:${supportEmail}`}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 transition-colors group"
               >
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-500 transition-colors">
                   <svg className="w-5 h-5 text-blue-500 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-5 8v1a2 2 0 002 2h2a2 2 0 002-2v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
-                  </svg>
+                    <rect
+                        x="3"
+                        y="6"
+                        width="18"
+                        height="12"
+                        rx="2"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+
+                      {/* Envelope flap */}
+                      <path
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 7l9 6 9-6"
+                      />                  
+                    </svg>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-slate-800">Email</p>
-                  <p className="text-xs text-slate-500">Reply in 24-48h</p>
+                  <p className="text-sm font-medium text-slate-800">{t("supportWidget.button3")}</p>
+                  <p className="text-xs text-slate-500">{t("supportWidget.button3desc")}</p>
                 </div>
               </a>
             </div>
@@ -167,17 +191,23 @@ export default function SupportWidget() {
         onClick={handleToggle}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white p-4 rounded-full shadow-xl shadow-orange-500/40 border-2 border-white flex items-center justify-center"
+        
         aria-label="Open support"
       >
+        
         {isOpen ? (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          
+          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="#f97316">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
+          <Image
+            src="/support-icon.svg"
+            alt="support"
+            width={80}
+            height={80}
+          />
+
         )}
       </motion.button>
     </div>

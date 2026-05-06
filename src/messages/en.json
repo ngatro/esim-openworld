@@ -672,6 +672,16 @@
     "contactText": "If you have any questions regarding these Terms of Service, reach out to us.",
     "contactBtn": "Contact Support"
   },
+  "supportWidget": {
+    "title": "Customer Support",
+    "description": "Choose how to reach us",
+    "button1": "Live chat",
+    "button1desc": "Chat with us directly",
+    "button2": "WhatsApp",
+    "button2desc": "Message us on WhatsApp",
+    "button3": "Email",
+    "button3desc": "Send us an email"
+  },
 
 "regions": {
     "NA": "North America",

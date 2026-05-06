@@ -670,6 +670,16 @@
     "contactText": "Nếu bạn có câu hỏi về các điều khoản dịch vụ, hãy liên hệ với đội ngũ pháp lý của chúng tôi.",
     "contactBtn": "Liên hệ hỗ trợ"
   },
+  "supportWidget": {
+    "title": "Hỗ trợ Khách hàng",
+    "description": "Chọn cách liên hệ với chúng tôi",
+    "button1": "Chat trực tiếp",
+    "button1desc": "Trò chuyện với chúng tôi trực tiếp",
+    "button2": "WhatsApp",
+    "button2desc": "Gửi tin nhắn cho chúng tôi trên WhatsApp",
+    "button3": "Email",
+    "button3desc": "Gửi email cho chúng tôi"
+  },
   "regions": {
     "NA": "Bắc Mỹ",
     "SA": "Nam Mỹ",

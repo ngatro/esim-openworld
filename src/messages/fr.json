@@ -670,6 +670,16 @@
   "contactText": "Si vous avez des questions concernant ces Conditions d'Utilisation, contactez-nous.",
   "contactBtn": "Contacter le support"
 },
+"supportWidget": {
+    "title": "Assistance Client",
+    "description": "Choisissez comment nous contacter",
+    "button1": "Chat en direct",
+    "button1desc": "Discutez avec nous directement",
+    "button2": "WhatsApp",
+    "button2desc": "Envoyez-nous un message sur WhatsApp",
+    "button3": "Email",
+    "button3desc": "Envoyez-nous un email"
+  },
   "regions": {
     "europe": "Europe",
     "asia": "Asie",
