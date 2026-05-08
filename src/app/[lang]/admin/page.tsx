@@ -365,16 +365,26 @@ async function syncPlans() {
              </div>
            </Link>
 
-           <Link href={`/${locale}/admin/promotions`}>
-             <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer">
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-lg">🎉</div>
-                 <h3 className="font-semibold text-slate-800">Promotions</h3>
-               </div>
-               <p className="text-sm text-slate-500">Manage promotional popups</p>
-             </div>
-           </Link>
-        </div>
+<Link href={`/${locale}/admin/promotions`}>
+              <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-lg">🎉</div>
+                  <h3 className="font-semibold text-slate-800">Promotions</h3>
+                </div>
+                <p className="text-sm text-slate-500">Manage promotional popups</p>
+              </div>
+            </Link>
+
+            <Link href={`/${locale}/admin/support`}>
+              <div className="bg-white rounded-xl p-5 border border-slate-200 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center text-lg">💬</div>
+                  <h3 className="font-semibold text-slate-800">Support</h3>
+                </div>
+                <p className="text-sm text-slate-500">Reply to customer tickets</p>
+              </div>
+            </Link>
+         </div>
 
         {/* Recent Orders */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">

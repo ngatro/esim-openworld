@@ -428,7 +428,7 @@ export default function BlogAdminPage() {
                       <label className="block text-sm font-medium text-slate-400 mb-1">Author Name</label>
                       <input
                         type="text"
-                        value={editingPost.author}
+                        value={editingPost.author || ''}
                         onChange={(e) => setEditingPost({ ...editingPost, author: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500"
                       />
@@ -437,7 +437,7 @@ export default function BlogAdminPage() {
                       <label className="block text-sm font-medium text-slate-400 mb-1">Author Avatar (emoji)</label>
                       <input
                         type="text"
-                        value={editingPost.authorAvatar}
+                        value={editingPost.authorAvatar || ''}
                         onChange={(e) => setEditingPost({ ...editingPost, authorAvatar: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500"
                       />
@@ -449,7 +449,7 @@ export default function BlogAdminPage() {
                       <label className="block text-sm font-medium text-slate-400 mb-1">Cover Image URL</label>
                       <input
                         type="text"
-                        value={editingPost.coverImage}
+                        value={editingPost.coverImage || ''}
                         onChange={(e) => setEditingPost({ ...editingPost, coverImage: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500"
                       />
@@ -470,7 +470,7 @@ export default function BlogAdminPage() {
                       <label className="block text-sm font-medium text-slate-400 mb-1">Tags (comma separated)</label>
                       <input
                         type="text"
-                        value={editingPost.tags?.join(', ')}
+                        value={editingPost.tags?.join(', ') || ''}
                         onChange={(e) => setEditingPost({ ...editingPost, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-sky-500"
                         placeholder="tag1, tag2, tag3"

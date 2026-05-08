@@ -374,3 +374,20 @@ model Promotion {
   endDate   DateTime? // Promotion end date
   createdAt DateTime @default(now())
 }
+
+// Support ticket model for customer support
+model SupportTicket {
+  id          Int      @id @default(autoincrement())
+  customerName  String?
+  customerEmail String
+  subject       String
+  message       String
+  status        String   @default("open") // open, replied, closed
+  adminReply    String?  // Admin's reply message
+  repliedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

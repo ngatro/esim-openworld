@@ -1,5 +1,4 @@
 import SupportClient from "./supportClient";
-import Footer from "@/components/layout/Footer";
 import { Metadata } from "next";
 
 
@@ -12,7 +11,6 @@ export default function SupportPage() {
   return (
     <div className="min-h-screen bg-white">
       <SupportClient />
-      <Footer />
     </div>
   );
 }

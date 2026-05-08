@@ -359,7 +359,10 @@
       "news": "News"
     },
     "readMore": "Read More",
-    "backToBlog": "Back to Blog"
+    "backToBlog": "Back to Blog",
+    "loading": "Loading blog posts...",
+    "noArticles": "No articles found",
+    "clearFilters": "Clear filters"
   },
   "footer": {
     "description": "Stay connected anywhere in the world with affordable eSIM data plans for 190+ countries.",
@@ -572,12 +575,28 @@
     "ans1": "After purchase, you'll receive an email with activation instructions. Go to your phone's Settings > Cellular/Mobile Data > Add Cellular Plan, then scan the QR code or enter the activation code manually.",
     "ans2": "Contact our support team immediately. We offer a 7-day refund policy for unused plans. Make sure your device is eSIM-compatible before purchasing.",
     "ans3": "Yes! Most of our plans support data top-up. Check the plan details or visit our top-up page to add more data to your existing eSIM.",
-    "stillNeedHelp": "Still need help?",
-    "stillNeedHelpDesc": "Our support team is here to assist you.",
+     "stillNeedHelp": "Still need help?",
+     "stillNeedHelpDesc": "Our support team is here to assist you.",
 
-    "contactUs": "Contact Us",
-    "faq": "Frequently Asked Questions"
-  },
+     "contactForm": "Send a Message",
+     "contactFormDesc": "Fill out the form below and we'll get back to you within 24 hours",
+     "name": "Your Name",
+     "namePlaceholder": "John Doe",
+     "email": "Email Address",
+     "emailPlaceholder": "john@example.com",
+     "subject": "Subject",
+     "subjectPlaceholder": "How can we help?",
+     "message": "Message",
+     "messagePlaceholder": "Describe your issue or question in detail...",
+     "submit": "Send Message",
+     "sending": "Sending...",
+     "sentSuccess": "Your message has been sent successfully! We'll reply to your email shortly.",
+     "sendFailed": "Failed to send message. Please try again or email us directly at support@openworldesim.com",
+     "requiredFields": "Please fill in all required fields",
+
+     "contactUs": "Contact Us",
+     "faq": "Frequently Asked Questions"
+   },
   "refund": {
     "title": "Refund Policy",
     "lastUpdated": "Last updated: May 2024",

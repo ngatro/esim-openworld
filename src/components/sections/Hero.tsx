@@ -1,3 +1,4 @@
+"use client";
 import { motion } from "framer-motion";
 import { useI18n } from "@/components/providers/I18nProvider";
 import Link from "next/link";

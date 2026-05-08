@@ -1,230 +1,97 @@
-"use client";
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import BlogPostClient from "./BlogPostClient";
+import { redirect } from "next/navigation";
 
-import { useState, useEffect } from "react";
-import { use } from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { BLOG_CATEGORIES, type BlogPost } from "@/lib/blog-data";
-import { useI18n } from "@/components/providers/I18nProvider";
+type Props = {
+  params: Promise<{ lang: string; slug: string }>;
+};
 
-interface PageProps {
-  params: Promise<{ slug: string }>;
+// 1. SEO Metadata: Tự động lấy title và excerpt của bài viết làm Metadata
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { lang, slug } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://owsim.com';
+
+  // Fetch dữ liệu từ API của mày để lấy thông tin bài viết
+  const res = await fetch(`${baseUrl}/api/blog/${slug}?locale=${lang}`, {
+    cache: 'no-store'       // Luôn lấy dữ liệu mới nhất, không cache để tránh SEO bị lỗi khi bài viết mới được cập nhật
+  });
+  // NẾU KHÔNG TÌM THẤY BÀI VIẾT (VÍ DỤ KHI ĐỔI LANG)
+  if (!res.ok) {
+    // Thay vì notFound(), ta điều hướng về danh sách blog của ngôn ngữ hiện tại
+    redirect(`/${lang}/blog`);
+  }
+
+  if (!res.ok) {
+  const titles: Record<string, string> = {
+    en: "Article Not Found",
+    vi: "Không tìm thấy bài viết",
+    de: "Artikel nicht gefunden",
+    fr: "Article non trouvé"
+  };
+  return { 
+    title: titles[lang] || titles.en 
+  };
+}
+  
+  const post = await res.json();
+
+  return {
+    title: `${post.title} | OpenWorld eSIM Blog`,
+    description: post.excerpt,
+    alternates: {
+      canonical: `${baseUrl}/${lang}/blog/${slug}`,
+      languages: {
+        'en-US': `${baseUrl}/en/blog/${slug}`,
+        'vi-VN': `${baseUrl}/vi/blog/${slug}`,
+        'fr-FR': `${baseUrl}/fr/blog/${slug}`,
+        'de-DE': `${baseUrl}/de/blog/${slug}`,
+      },
+    },
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      images: [{ url: post.coverImage }],
+      type: "article",
+      publishedTime: post.publishedAt,
+      authors: [post.author],
+    },
+  };
 }
 
-export default function BlogPostPage({ params }: PageProps) {
-  const { slug } = use(params);
-  const { t, locale } = useI18n();
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
+export default async function Page({ params }: Props) {
+  const resolvedParams = await params;
+  const { lang, slug } = resolvedParams;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://owsim.com';
 
-  useEffect(() => {
-    fetchPost();
-  }, [slug, locale]);
+  const res = await fetch(`${baseUrl}/api/blog/${slug}?locale=${lang}`);
+  if (!res.ok) notFound();
+  const post = await res.json();
 
-  async function fetchPost() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/blog/${slug}?locale=${locale}`);
-      if (!res.ok) {
-        if (res.status === 404) {
-          setPost(null);
-        } else {
-          throw new Error("Failed to fetch post");
-        }
-      } else {
-        const data: BlogPost = await res.json();
-        setPost(data);
-        // Also fetch related posts
-        await fetchRelatedPosts(data);
-      }
-    } catch (error) {
-      console.error("Error fetching post:", error);
-      setPost(null);
-    } finally {
-      setLoading(false);
+  // 2. Schema Article: Cực kỳ quan trọng để lên Google News và hiện ảnh đại diện trên Google
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "image": post.coverImage,
+    "datePublished": post.publishedAt,
+    "author": { "@type": "Person", "name": post.author },
+    "description": post.excerpt,
+    "publisher": {
+      "@type": "Organization",
+      "name": "OpenWorld eSIM",
+      "logo": { "@type": "ImageObject", "url": `${baseUrl}/logo.png` }
     }
-  }
-
-  async function fetchRelatedPosts(currentPost: BlogPost) {
-    try {
-      const res = await fetch(`/api/blog?locale=${locale}`);
-      if (!res.ok) throw new Error("Failed to fetch posts");
-      const allPosts: BlogPost[] = await res.json();
-      const related = allPosts
-        .filter(p => p.id !== currentPost.id && p.category === currentPost.category)
-        .slice(0, 3);
-      setRelatedPosts(related);
-    } catch (error) {
-      console.error("Error fetching related posts:", error);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white text-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading article...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-white text-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-6xl mb-4">404</p>
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">Article Not Found</h1>
-          <p className="text-slate-500 mb-6">The article you&apos;re looking for doesn&apos;t exist or is not available in your language.</p>
-          <Link href={`/${locale}/blog`} className="text-orange-500 hover:text-orange-600">
-            ← {t("common.blog")}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const category = BLOG_CATEGORIES.find(c => c.id === post.category);
+  };
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
-      <main>
-        <section className="relative h-96 overflow-hidden">
-          <img 
-            src={post.coverImage} 
-            alt={post.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-slate-900/60" />
-          
-          <div className="absolute bottom-0 left-0 right-0 p-8">
-            <div className="max-w-4xl mx-auto">
-              <Link 
-                href={`/${locale}/blog`} 
-                className="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 mb-4"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                {t("common.back")}
-              </Link>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
-                <span className="inline-block bg-orange-500 text-white text-sm font-semibold px-3 py-1 rounded-full mb-4">
-                  {category?.emoji} {t(`blog.categories.${post.category}`)}
-                </span>
-                
-                <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
-                  {post.title}
-                </h1>
-                
-                <div className="flex flex-wrap items-center gap-4 text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{post.authorAvatar}</span>
-                    <span>{post.author}</span>
-                  </div>
-                  <span>•</span>
-                  <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
-                  <span>•</span>
-                  <span>{post.readTime} {t("blog.readTime")}</span>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-12">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.article 
-              className="prose prose-lg max-w-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <p className="text-xl text-slate-600 mb-8 lead">
-                {post.excerpt}
-              </p>
-              
-              <div className="space-y-6 text-slate-600">
-                {post.content.split('\n').map((line, index) => {
-                  if (line.startsWith('# ')) {
-                    return <h1 key={index} className="text-3xl font-bold text-slate-800 mt-8 mb-4">{line.slice(2)}</h1>;
-                  }
-                  if (line.startsWith('## ')) {
-                    return <h2 key={index} className="text-2xl font-bold text-slate-800 mt-6 mb-3">{line.slice(3)}</h2>;
-                  }
-                  if (line.startsWith('### ')) {
-                    return <h3 key={index} className="text-xl font-bold text-slate-800 mt-4 mb-2">{line.slice(4)}</h3>;
-                  }
-                  if (line.startsWith('- ')) {
-                    return <li key={index} className="ml-4">{line.slice(2)}</li>;
-                  }
-                  if (line.trim() === '') {
-                    return <br key={index} />;
-                  }
-                  if (!line.startsWith('|') && !line.startsWith('---')) {
-                    return <p key={index}>{line}</p>;
-                  }
-                  return null;
-                })}
-              </div>
-            </motion.article>
-
-            <div className="mt-12 pt-8 border-t border-slate-200">
-              <div className="flex flex-wrap gap-2">
-                {(post.tags || []).map(tag => (
-                  <span key={tag} className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {relatedPosts.length > 0 && (
-          <section className="py-12 bg-orange-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h2 className="text-2xl font-bold text-slate-800 mb-6">{t("blog.latest")}</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {relatedPosts.map((relatedPost, index) => (
-                  <motion.div
-                    key={relatedPost.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <Link href={`/blog/${relatedPost.slug}`} className="block group">
-                      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-orange-400 hover:shadow-lg transition-all">
-                        <img 
-                          src={relatedPost.coverImage} 
-                          alt={relatedPost.title}
-                          className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="p-4">
-                          <h3 className="font-semibold text-slate-800 line-clamp-2 group-hover:text-orange-600 transition-colors">
-                            {relatedPost.title}
-                          </h3>
-                          <p className="text-sm text-slate-500 mt-2">
-                            {relatedPost.readTime} {t("blog.readTime")}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {/* Không dùng sr-only ở đây vì bài viết cần H1 hiển thị cho người dùng đọc */}
+      <BlogPostClient params={resolvedParams} initialPost={post} />
+    </>
   );
 }

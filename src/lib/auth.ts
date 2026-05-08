@@ -56,3 +56,47 @@ export async function verifyLogin(email: string, password: string) {
   
   return user;
 }
+
+// Get session from request cookies (NextAuth or custom token)
+export async function getSessionFromRequest(request: Request) {
+  // Try NextAuth session token first
+  const nextAuthSession = request.headers.get("cookie")?.match(/next-auth.session-token=([^;]+)/)?.[1];
+  if (nextAuthSession) {
+    try {
+      const parts = nextAuthSession.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+        if (payload.email) {
+          const user = await prisma.user.findUnique({
+            where: { email: payload.email },
+            select: { id: true, email: true, name: true, role: true },
+          });
+          if (user) {
+            return { user };
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to decode JWT:", e);
+    }
+  }
+  
+  // Fallback to custom auth token
+  const cookie = request.headers.get("cookie");
+  const token = cookie?.match(/auth-token=([^;]+)/)?.[1];
+  
+  if (token) {
+    const userId = parseInt(token);
+    if (!isNaN(userId)) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, name: true, role: true },
+      });
+      if (user) {
+        return { user };
+      }
+    }
+  }
+  
+  return null;
+}

@@ -58,7 +58,7 @@ export default function PlansSection() {
         <div className="mb-10">
           <h3 className="text-lg font-semibold text-slate-700 mb-4 text-center">{t("coverage.popular")}</h3>
           <div className="flex flex-wrap justify-center gap-3">
-{REGIONS.map((region) => (
+            {REGIONS.map((region) => (
                <Link key={region.id} href={`/${locale}/esim/${region.name}`}>
                  <motion.div
                    whileHover={{ scale: 1.05 }}

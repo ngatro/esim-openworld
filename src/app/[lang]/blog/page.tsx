@@ -1,250 +1,108 @@
-"use client";
+import { Metadata } from "next";
+import BlogClient from "./BlogClient";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import { BLOG_CATEGORIES, type BlogPost } from "@/lib/blog-data";
-import { useI18n } from "@/components/providers/I18nProvider";
+type Props = {
+  params: Promise<{ lang: string }>;
+};
 
-function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-}
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { lang } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://owsim.com';
 
-function BlogCard({ post, featured = false }: { post: BlogPost; featured?: boolean }) {
-  const { t, locale } = useI18n();
-  const category = BLOG_CATEGORIES.find(c => c.id === post.category);
-  
-  return (
-    <Link href={`/${locale}/blog/${post.slug}`}>
-      <motion.article 
-        className={`bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-orange-400 hover:shadow-lg transition-all hover:-translate-y-1 ${featured ? 'md:grid md:grid-cols-2 md:gap-6' : ''}`}
-        whileHover={{ scale: 1.01 }}
-      >
-        <div className={`${featured ? 'h-64 md:h-full' : 'h-48'} relative overflow-hidden`}>
-          <img 
-            src={post.coverImage} 
-            alt={post.title}
-            className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-slate-900/40" />
-          <span className="absolute top-4 left-4 bg-orange-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-            {category?.emoji} {t(`blog.categories.${post.category}`)}
-          </span>
-        </div>
-        
-        <div className="p-6">
-          <h3 className={`font-bold text-slate-800 mb-2 ${featured ? 'text-2xl' : 'text-lg'} line-clamp-2`}>
-            {post.title}
-          </h3>
-          <p className="text-slate-500 text-sm mb-4 line-clamp-2">
-            {post.excerpt}
-          </p>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{post.authorAvatar}</span>
-              <span className="text-sm text-slate-500">{post.author}</span>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
-              <span>•</span>
-              <span>{post.readTime} {t("blog.readTime")}</span>
-            </div>
-          </div>
-        </div>
-      </motion.article>
-    </Link>
-  );
-}
-
-export default function BlogPage() {
-  const { t, locale } = useI18n();
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [locale]);
-
-  async function fetchPosts() {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/blog?locale=${locale}`);
-      if (!res.ok) throw new Error("Failed to fetch posts");
-      const data = await res.json();
-      setPosts(data);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-      setPosts([]);
-    } finally {
-      setLoading(false);
+  const seo: Record<string, { title: string; desc: string }> = {
+    en: {
+      title: "eSIM Travel Blog | Expert Guides & Connectivity Tips",
+      desc: "Stay updated with the latest travel tips, eSIM installation guides, and network reviews for 190+ countries. Travel smarter with OpenWorld eSIM.",
+    },
+    vi: {
+      title: "Blog eSIM Du Lịch | Hướng Dẫn & Mẹo Kết Nối Quốc Tế",
+      desc: "Cập nhật kinh nghiệm du lịch, hướng dẫn cài đặt eSIM và review mạng viễn thông tại 190+ quốc gia. Kết nối dễ dàng cùng OpenWorld eSIM.",
+    },
+    de: {
+      title: "eSIM Reise-Blog | Experten-Guides & Tipps",
+      desc: "Erfahren Sie alles über Reise-eSIMs, Installationsanleitungen und Tipps für über 190 Länder weltweit.",
+    },
+    fr: {
+      title: "Blog eSIM Voyage | Guides Experts & Conseils",
+      desc: "Découvrez les derniers conseils de voyage, guides d'installation eSIM et actualités pour plus de 190 pays.",
     }
-  }
+  };
 
-  const filteredPosts = posts.filter(post => {
-    const matchCategory = activeCategory === "all" || post.category === activeCategory;
-    const matchSearch = searchQuery === "" || 
-      post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.excerpt?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  const current = seo[lang] || seo.en;
 
-  const featuredPosts = posts.filter(p => p.featured);
-  const nonFeaturedPosts = filteredPosts.filter(p => !p.featured);
+  return {
+    title: current.title,
+    description: current.desc,
+    alternates: {
+      canonical: `${baseUrl}/${lang}/blog`,
+      languages: {
+        'en-US': `${baseUrl}/en/blog`,
+        'vi-VN': `${baseUrl}/vi/blog`,
+        'fr-FR': `${baseUrl}/fr/blog`,
+        'de-DE': `${baseUrl}/de/blog`,
+        'x-default': `${baseUrl}/en/blog`,
+      },
+    },
+  };
+}
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white text-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-500">Loading blog posts...</p>
-        </div>
-      </div>
-    );
-  }
+export default async function Page({ params }: Props) {
+  const resolvedParams = await params;
+  const { lang } = resolvedParams;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://owsim.com';
+
+  // 1. Định nghĩa nội dung cho 4 ngôn ngữ (Dùng chung cho H1 và JSON-LD)
+  const content: Record<string, { h1: string; desc: string }> = {
+    en: {
+      h1: "Global Travel eSIM Guide & Connectivity Blog",
+      desc: "Expert insights on eSIM technology and international travel connectivity."
+    },
+    vi: {
+      h1: "Cẩm Nang Du Lịch & Hướng Dẫn Sử Dụng eSIM Quốc Tế",
+      desc: "Chuyên mục chia sẻ kinh nghiệm du lịch và công nghệ eSIM toàn cầu."
+    },
+    de: {
+      h1: "Globaler Reise-eSIM-Leitfaden & Konnektivitäts-Blog",
+      desc: "Expertenwissen über eSIM-Technologie und internationale Reisekonnektivität."
+    },
+    fr: {
+      h1: "Guide eSIM Voyage Mondial & Blog de Connectivité",
+      desc: "Aperçus d'experts trên công nghệ eSIM và kết nối du lịch quốc tế."
+    }
+  };
+
+  const selected = content[lang] || content.en;
+
+  // 2. JSON-LD chuẩn 4 ngôn ngữ
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": selected.h1,
+    "description": selected.desc,
+    "publisher": {
+      "@type": "Organization",
+      "name": "OpenWorld eSIM",
+      "logo": {
+        "@type": "ImageObject",
+        "url": `${baseUrl}/logo.png`
+      }
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-white text-slate-800">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
       <main>
-        <section className="relative pt-24 pb-16 bg-orange-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <FadeIn>
-              <div className="text-center">
-                <h1 className="text-4xl md:text-5xl font-bold text-slate-800 mb-4">
-                  {t("blog.title")}
-                </h1>
-                <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-                  {t("blog.subtitle")}
-                </p>
-              </div>
-            </FadeIn>
-          </div>
-        </section>
+        {/* H1 ẨN - CHUẨN 4 NGÔN NGỮ ĐÃ FIX */}
+        <h1 className="sr-only">{selected.h1}</h1>
 
-        <section className="py-8 bg-orange-50 border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                  onClick={() => setActiveCategory("all")}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    activeCategory === "all"
-                      ? "bg-orange-500 text-white"
-                      : "bg-white text-slate-600 hover:text-slate-800 border border-slate-200"
-                  }`}
-                >
-                  {t("blog.categories.all")}
-                </button>
-                {BLOG_CATEGORIES.map(category => (
-                  <button
-                    key={category.id}
-                    onClick={() => setActiveCategory(category.id)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      activeCategory === category.id
-                        ? "bg-orange-500 text-white"
-                        : "bg-white text-slate-600 hover:text-slate-800 border border-slate-200"
-                    }`}
-                  >
-                    {category.emoji} {t(`blog.categories.${category.id}`)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative w-full md:w-64">
-                <input
-                  type="text"
-                  placeholder={t("blog.searchPlaceholder")}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2 pl-10 focus:outline-none focus:border-orange-400"
-                />
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {activeCategory === "all" && searchQuery === "" && featuredPosts.length > 0 && (
-          <section className="py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h2 className="text-2xl font-bold text-slate-800 mb-6">{t("blog.featured")}</h2>
-              <div className="grid grid-cols-1 gap-6">
-                {featuredPosts.slice(0, 2).map((post, index) => (
-                  <FadeIn key={post.id} delay={index * 0.1}>
-                    <BlogCard post={post} featured />
-                  </FadeIn>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">
-              {activeCategory === "all" ? t("blog.latest") : t(`blog.categories.${activeCategory}`)}
-            </h2>
-            
-            {filteredPosts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(activeCategory === "all" && searchQuery === "" ? nonFeaturedPosts : filteredPosts).map((post, index) => (
-                  <FadeIn key={post.id} delay={index * 0.05}>
-                    <BlogCard post={post} />
-                  </FadeIn>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-20">
-                <p className="text-5xl mb-4">🔍</p>
-                <p className="text-slate-500 text-lg">No articles found</p>
-                <button
-                  onClick={() => { setActiveCategory("all"); setSearchQuery(""); }}
-                  className="mt-4 text-orange-500 hover:text-orange-600"
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="py-16 bg-cyan-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <FadeIn>
-              <h2 className="text-3xl font-bold text-slate-800 mb-4">{t("cta.title")}</h2>
-              <p className="text-slate-600 mb-6">
-                {t("cta.subtitle")}
-              </p>
-              <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-3 focus:outline-none focus:border-orange-400"
-                />
-                <button
-                  type="submit"
-                  className="bg-orange-500 hover:bg-orange-400 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-                >
-                  Subscribe
-                </button>
-              </form>
-            </FadeIn>
-          </div>
-        </section>
+        <BlogClient params={resolvedParams} />
+        
       </main>
-    </div>
+    </>
   );
 }

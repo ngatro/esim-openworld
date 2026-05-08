@@ -1,19 +1,29 @@
-"use client"; // Bắt buộc vì dùng useI18n
+"use client";
 
 import { useI18n } from "@/components/providers/I18nProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
+import ContactForm from "./ContactForm";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function SupportClient() {
   const { t } = useI18n();
+  const { user } = useAuth();
 
   return (
-      <main className="pt-28 pb-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-slate-800 mb-4">{t("support.title")}</h1>
-            <p className="text-lg text-slate-600">{t("support.subtitle")}</p>
-          </div>
+    <main className="pt-28 pb-24">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-slate-800 mb-4">{t("support.title")}</h1>
+          <p className="text-lg text-slate-600">{t("support.subtitle")}</p>
+        </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
+        {/* Contact Form - for all users */}
+        <div className="mb-12">
+          <ContactForm />
+        </div>
+
+        {/* Quick Contact Options */}
+        <div className="grid md:grid-cols-3 gap-6 mb-12">
             <a
               href="#live-chat"
               className="bg-slate-50 border border-slate-200 hover:border-orange-400 rounded-2xl p-6 text-center transition-colors group"

@@ -2,7 +2,7 @@
 
 ## Current State
 
-**App Status**: ✅ SimPal — eSIM Travel Data Marketplace with i18n, Auth, Cart, Admin & Affiliate + Top-up
+**App Status**: ✅ Openworld eSim — eSIM Travel Data Marketplace with i18n, Auth, Cart, Admin & Affiliate + Top-up
 
 A full-featured eSIM marketplace built on Next.js 16 with internationalization, user authentication, shopping cart, admin dashboard, affiliate system, and top-up functionality.
 
@@ -297,4 +297,8 @@ Create `src/app/api/[route]/route.ts`
    - src/app/[lang]/plans/page.tsx (destination card title)
   Now when countryId is undefined or translation missing, displays fallback (countryId, destination name, or "Unknown") instead of raw key "countries.undefined".
 | 2026-05-04 | **Fixed language switching URL sync issue**: Added `useEffect` in `I18nProvider` to sync the locale context with URL param changes. When navigating between `/en` and `/vi` routes, the URL would change but the i18n context locale would remain stale. The new effect watches `initialLocale` prop changes (from the `[lang]` layout param) and updates the locale state, keeping URL and UI in sync.
-| 2026-05-04 | **Auto-redirect to detected/saved language**: Added redirect in `I18nProvider` so that when a user's saved/cookie locale (or IP-detected locale) doesn't match the URL language prefix, the app automatically redirects to the correct language URL using `router.replace()`. This fixes the issue where Vietnamese users would land on `/en` URLs even though the UI showed Vietnamese content.
+| 2026-05-08 | **Admin support email fix**: Email template now displays customer's original message above admin reply; fixed GET /api/admin/support to always return array (even on error); added response validation in admin support page to prevent "tickets.map is not a function" error
+| 2026-05-08 | **User support ticket form & admin compose email**: Added contact form on /support for all users (logged-in or guest) to submit tickets via POST /api/support; admin can compose new emails to any address via "Compose Email" button on /admin/support using sendEmail utility; added translation keys (en/vi) for form labels and messages
+| 2026-05-08 | **Fixed admin compose email security**: Replaced direct client-side sendEmail call with secure server API route at /api/admin/send-email; admin support page now POSTs to this endpoint, preventing RESEND_API_KEY exposure and ensuring email sending works properly
+| 2026-05-08 | **Fixed getSessionFromRequest auth utility**: Added getSessionFromRequest export to src/lib/auth.ts; this function is now shared across all admin API routes (support, send-email, etc.) for consistent admin authentication
+| 2026-05-08 | **Fixed admin composer send-email**: Added `getComposeEmailHtml` function in lib/email.ts to wrap plain text message in HTML template; updated /api/admin/send-email to read supportEmail from settings.json (configurable in admin dashboard); fixed frontend to send `text` field instead of raw `html`; API now auto-converts text to HTML using template with OW SIM branding

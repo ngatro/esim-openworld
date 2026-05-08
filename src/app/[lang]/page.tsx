@@ -1,10 +1,5 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useI18n } from "@/components/providers/I18nProvider";
+import { Metadata } from "next";
 import PlansSection from "@/components/sections/PlansSection";
-import  FadeIn  from "@/components/animations/FadeIn";
 import DeviceCompatibility from "@/components/sections/DeviceCompatibility";
 import Comparison from "@/components/sections/Comparison";
 import Coverage from "@/components/sections/Coverage";
@@ -15,19 +10,66 @@ import FAQ from "@/components/sections/FAQ";
 import Partners from "@/components/sections/Partners";
 import Hero from "@/components/sections/Hero";
 import HowItWorks from "@/components/sections/HowItWorks";
+import ReadyStayConnected from "@/components/sections/ReadyStayConnected";
 
 
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://domain.com';
 
+  const seoData: Record<string, { title: string; description: string }> = {
+    vi: {
+      title: "eSIM Du Lịch Quốc Tế (190+ Nước) - Kết Nối Ngay | OpenWorld",
+      description: "Mua eSIM du lịch quốc tế giá rẻ, không phí chuyển vùng. Nhận QR code qua Email và kích hoạt mạng 4G/5G tức thì tại 190+ quốc gia. Khám phá ngay!",
+    },
+    en: {
+      title: "Global Travel eSIM: Instant 4G/5G in 190+ Countries | OpenWorld",
+      description: "Get your travel eSIM online and stay connected worldwide. No physical SIM needed, no roaming fees. Instant delivery & easy activation in 190+ countries.",
+    },
+    de: {
+      title: "Reise eSIM Shop: Weltweit Internet in 190+ Ländern | OpenWorld",
+      description: "Bestellen Sie Ihre Reise-eSIM online. Schnelles 4G/5G Internet in über 190 Ländern ohne Roaming-Gebühren. Sofortige Aktivierung per QR-Code.",
+    },
+    fr: {
+      title: "eSIM Voyage Internationale: Internet dans 190+ Pays | OpenWorld",
+      description: "Obtenez votre eSIM de voyage sans frais d'itinérance. Connexion 4G/5G instantanée dans plus de 190 pays. Livraison immédiate par e-mail.",
+    }
+  };
+
+  const currentSeo = seoData[lang] || seoData['en'];
+
+  return {
+    title: currentSeo.title,
+    description: currentSeo.description,
+    alternates: {
+      canonical: `${baseUrl}/${lang}`,
+      languages: {
+        'vi-VN': `${baseUrl}/vi`,
+        'en-US': `${baseUrl}/en`,
+        'de-DE': `${baseUrl}/de`,
+        'fr-FR': `${baseUrl}/fr`,
+        'x-default': `${baseUrl}/en`,
+      },
+    },
+    openGraph: {
+      title: currentSeo.title,
+      description: currentSeo.description,
+      url: `${baseUrl}/${lang}`,
+      siteName: 'OpenWorld eSIM',
+      type: 'website',
+      images: [
+        {
+          url: `${baseUrl}/images/og-home.jpg`, // Nên có ảnh riêng cho trang chủ
+          width: 1200,
+          height: 630,
+        },
+      ],
+    },
+  };
+}
 
 
 export default function Home() {
-  const { t } = useI18n();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
     <div className="min-h-screen bg-white text-slate-800">
       <main>
@@ -44,43 +86,9 @@ export default function Home() {
         <PlansSection />
         <Partners />
         <FAQ />
+        <ReadyStayConnected />
 
-        <section className="py-24">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <FadeIn>
-              <motion.div 
-                className="bg-orange-50 border border-orange-200 rounded-3xl p-12"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300 }}
-              >
-                <h2 className="text-4xl font-bold text-slate-800 mb-4">
-                  {t("cta.title")}
-                </h2>
-                <p className="text-slate-600 text-lg mb-8 max-w-xl mx-auto">
-                  {t("cta.subtitle")}
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <motion.a
-                    href="#plans"
-                    className="w-full sm:w-auto bg-orange-500 hover:bg-orange-400 text-white font-semibold px-10 py-4 rounded-xl text-lg transition-colors shadow-xl shadow-orange-900/20"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {t("common.findYourPlan")}
-                  </motion.a>
-                  <motion.a
-                    href="#how-it-works"
-                    className="w-full sm:w-auto px-10 py-4 rounded-xl text-lg font-medium text-slate-600 hover:text-slate-800 transition-colors"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    {t("common.learnMore")}
-                  </motion.a>
-                </div>
-              </motion.div>
-            </FadeIn>
-          </div>
-        </section>
+        
       </main>
     </div>
   );

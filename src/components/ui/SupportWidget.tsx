@@ -191,24 +191,33 @@ export default function SupportWidget() {
         onClick={handleToggle}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        
-        aria-label="Open support"
+        className="relative w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-lg"
+        aria-label="Toggle support"
       >
-        
-        {isOpen ? (
-          
-          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="#f97316">
+        {/* Icon Đóng (X) */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-all duration-300 transform ${
+            isOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50 pointer-events-none"
+          }`}
+        >
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#f97316">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
-        ) : (
+        </div>
+
+        {/* Icon Mở (Support Image) */}
+        <div
+          className={`absolute inset-0 flex items-center justify-center transition-all duration-300 transform ${
+            !isOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 rotate-90 scale-50 pointer-events-none"
+          }`}
+        >
           <Image
             src="/support-icon.svg"
             alt="support"
-            width={80}
-            height={80}
+            width={50}
+            height={50}
           />
-
-        )}
+        </div>
       </motion.button>
     </div>
   );

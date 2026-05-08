@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     en: "Traveling abroad? Get eSIM data before you go. Avoid roaming fees and stay connected in 190+ countries with instant activation.",
     de: "Reist du ins Ausland? Hol dir eSIM-Daten bevor du gehst. Vermeide Roaming-Gebühren und bleibe in 190+ Ländern verbunden mit sofortiger Aktivierung.",
     fr: "Vous voyagez à l'étranger ? Obtenez des données eSIM avant votre départ. Évitez les frais d'itinérance et restez connecté dans plus de 190 pays avec une activation instantanée.",
-    vi: "Du lịch nước ngoài? Nhận dữ liệu eSIM trước khi đi. Tránh phí itinerant và duy trì kết nối trong 190+ quốc gia với kích hoạt ngay lập tức.",
+    vi: "Du lịch nước ngoài? Nhận dữ liệu eSIM trước khi đi. Tránh phí chuyển vùng dữ liệu và duy trì kết nối trong 190+ quốc gia với kích hoạt ngay lập tức.",
   };
 
   return {
