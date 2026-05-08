@@ -67,7 +67,7 @@ export default async function Page({ params }: Props) {
     },
     fr: {
       h1: "Guide eSIM Voyage Mondial & Blog de Connectivité",
-      desc: "Aperçus d'experts trên công nghệ eSIM và kết nối du lịch quốc tế."
+      desc: "Découvrez les derniers conseils de voyage, guides d'installation eSIM et actualités pour plus de 190 pays."
     }
   };
 
