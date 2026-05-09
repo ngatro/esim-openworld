@@ -103,6 +103,16 @@ if (session?.user) {
 if (!userId) {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
+  if (!userId && session.user.email) {
+    const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (dbUser) userId = dbUser.id;
+  }
+}
+
+// For activation, user must be authenticated (order belongs to someone)
+if (!userId) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
 // Find the order (must belong to user unless admin)
 const order = await prisma.order.findFirst({

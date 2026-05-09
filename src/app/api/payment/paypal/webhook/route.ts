@@ -385,12 +385,7 @@ export async function PUT(request: Request) {
       }
     }
 
-    // Fallback to legacy token (email/password login)
-    if (!userId) {
-      const cookie = request.headers.get("cookie");
-      const token = cookie?.match(/auth-token=([^;]+)/)?.[1];
-      if (token) userId = parseInt(token);
-    }
+
 
     // Idempotency: Check if order already exists by PayPal order ID
     const existingOrder = await prisma.order.findFirst({

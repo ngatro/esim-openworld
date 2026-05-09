@@ -112,33 +112,10 @@ async function processTopUp(
 
 export async function POST(request: Request) {
   try {
-    // 1. Lấy session từ NextAuth (Dành cho Google OAuth)
-   const session = await getSessionFromRequest(request);
-   
-   // 2. Lấy token từ Cookie thủ công (Dành cho login thường của)
-   const cookie = request.headers.get("cookie");
-   const token = cookie?.match(/auth-token=([^;]+)/)?.[1];
-   
-   // 3. XÁC ĐỊNH DANH TÍNH: Ưu tiên Session (Google) > Token (Thường) > Email Param
-   let userId: number | null = null;
-   let userEmail: string | null = null;
-   
-   if (session?.user) {
-     userEmail = session.user.email || userEmail;
-     // Fix: Properly check if id exists and is not null/undefined
-     if (session.user.id !== null && session.user.id !== undefined) {
-       userId = Number(session.user.id);
-     }
-     
-     // Nếu session có email nhưng chưa có id (fallback), truy vấn từ DB
-     if (!userId && userEmail) {
-       const dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
-       if (dbUser) userId = dbUser.id;
-     }
-   } else if (token) {
-     userId = parseInt(token);
-   }
-    
+    // 1. Get session from shared helper (handles both legacy token and NextAuth)
+    const session = await getSessionFromRequest(request);
+
+    // 2. Parse request body
     const {
       items,
       customerName,
@@ -149,7 +126,23 @@ export async function POST(request: Request) {
       selectedDuration,
     } = await request.json();
 
-    // 4. Nếu vẫn không có userId, thử lấy từ email trong body
+    // 3. Determine identity: use session if available, fallback to email in body
+    let userId: number | null = null;
+    let userEmail: string | null = null;
+
+    if (session?.user) {
+      userEmail = session.user.email || userEmail;
+      if (session.user.id !== null && session.user.id !== undefined) {
+        userId = Number(session.user.id);
+      }
+      // Fallback: if session has email but no id, query by email
+      if (!userId && userEmail) {
+        const dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
+        if (dbUser) userId = dbUser.id;
+      }
+    }
+
+    // 3. If still no userId, try to find user by email from body
     if (!userId && bodyCustomerEmail) {
       const dbUser = await prisma.user.findUnique({ where: { email: bodyCustomerEmail } });
       if (dbUser) userId = dbUser.id;
@@ -303,36 +296,44 @@ export async function POST(request: Request) {
         orderItems: {
           create: orderItemsData,
         },
-      },
-      include: {
-        orderItems: true,
-      },
-    });
+     },
+     include: {
+       orderItems: true,
+     },
+   });
+   console.log("Created order:", order);
 
-     // Skip eSIM creation for pending orders - will be activated after payment confirmation
-     // eSIM creation is handled by payment webhook (PayPal, LemonSqueezy, etc.) or admin gift flow
-  } catch (error) {
-    console.error("Order creation error:", error);
-    return NextResponse.json({ error: "Order failed" }, { status: 500 });
-  }
+   // Return the created order
+   return NextResponse.json({ order }, { status: 201 });
+
+   // Skip eSIM creation for pending orders - will be activated after payment confirmation
+   // eSIM creation is handled by payment webhook (PayPal, LemonSqueezy, etc.) or admin gift flow
+ } catch (error) {
+     console.error("Order creation error:", error);
+     const errorMessage = error instanceof Error ? error.message : "Order failed";
+     return NextResponse.json({ error: errorMessage }, { status: 500 });
+   }
 }
 
 // PUT: Retry payment for pending order
 export async function PUT(request: Request) {
-  try {
-
+   try {
      const session = await getSessionFromRequest(request);
-    
-    // 2. Lấy token từ Cookie thủ công (Dành cho login thường của)
-    const cookie = request.headers.get("cookie");
-    const token = cookie?.match(/auth-token=([^;]+)/)?.[1];
-    
-    // 3. Ưu tiên ID từ Session (Google), nếu không có thì lấy từ Token (Thường)
-    let userId: number | null = session?.user ? (session.user as any).id : (token ? parseInt(token) : null);
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+     let userId: number | null = null;
+     if (session?.user) {
+       if (session.user.id !== null && session.user.id !== undefined) {
+         userId = Number(session.user.id);
+       }
+       if (!userId && session.user.email) {
+         const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+         if (dbUser) userId = dbUser.id;
+       }
+     }
+
+     if (!userId) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+     }
     
     const { orderId, paymentMethod } = await request.json();
     
@@ -362,8 +363,9 @@ export async function PUT(request: Request) {
     
     return NextResponse.json({ success: true, order, message: "Ready for payment" });
   } catch (error) {
-    console.error("Retry payment error:", error);
-    return NextResponse.json({ error: "Failed to prepare payment" }, { status: 500 });
+    console.error("Order creation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Order failed";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -377,25 +379,19 @@ export async function GET(request: Request) {
     // 1. Lấy session từ NextAuth (Dành cho Google OAuth)
     const session = await getSessionFromRequest(request);
     
-    // 2. Lấy token từ Cookie cũ (Dành cho login bằng password)
-    const cookie = request.headers.get("cookie");
-    const token = cookie?.match(/auth-token=([^;]+)/)?.[1];
-
+    // Determine identity: session (verified) or email param (guest)
     let userId: number | null = null;
     let userEmail: string | null = emailParam;
 
-    // 3. XÁC ĐỊNH DANH TÍNH: Ưu tiên Session (Google) > Token (Legacy) > Email Param
     if (session?.user) {
       userEmail = session.user.email || userEmail;
-      userId = (session.user as any).id ? Number((session.user as any).id) : null;
-      
-      // Nếu session có email nhưng chưa có id (fallback), truy vấn từ DB
+      if (session.user.id !== null && session.user.id !== undefined) {
+        userId = Number(session.user.id);
+      }
       if (!userId && userEmail) {
         const dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
         if (dbUser) userId = dbUser.id;
       }
-    } else if (token) {
-      userId = parseInt(token);
     }
 
     if (!userId && !userEmail) {

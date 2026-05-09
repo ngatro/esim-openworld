@@ -47,7 +47,9 @@ A full-featured eSIM marketplace built on Next.js 16 with internationalization, 
   - Auto-sync localStorage cart to database on user login with smart merge logic
   - CartModal displays loading skeletons and disables buttons during operations
   - Fixed TypeScript errors in countries and plans APIs
-  - Removed unused legacy page file causing module error
+   - Removed unused legacy page file causing module error
+- [x] **Fix checkout 500 error**: Removed unsafe raw auth token parsing in POST /api/orders; now only uses validated session to set userId, preventing foreign key constraint violations from stale tokens.
+- [x] **Fix unsafe auth token fallback**: Removed raw `parseInt(token)` fallback in POST /api/orders (retry payment), GET /api/orders, POST /api/orders/activate, and PUT /api/payment/paypal/webhook; all now exclusively use `getSessionFromRequest` which verifies user existence, eliminating foreign key constraint violations and potential auth bypass.
 
 ## Recently Completed
 
@@ -209,6 +211,20 @@ A full-featured eSIM marketplace built on Next.js 16 with internationalization, 
 - Add real payment integration (Stripe)
 - Add email notifications
 
+## Security Audit (2026-05-10)
+
+**Audit**: Security audit of API routes for unsafe auth-token cookie parsing
+
+**4 Unsafe endpoints found:**
+1. `src/app/api/orders/route.ts` PUT handler (line ~322, 325) - fallback to `parseInt(token)` without DB verification, used for order update (retry payment)
+2. `src/app/api/orders/route.ts` GET handler (line ~377, 393) - fallback to `parseInt(token)` without DB verification, used for order list query
+3. `src/app/api/orders/activate/route.ts` POST handler (line ~103–104) - fallback to `parseInt(token)` without DB verification, used for eSIM activation + order update
+4. `src/app/api/payment/paypal/webhook/route.ts` PUT handler (line ~391–392) - fallback to `parseInt(token)` without DB verification, used for `order.create` (CRITICAL)
+
+**Safe pattern exists**: `src/lib/auth.ts` has a centralized `getSessionFromRequest()` that parses the auth-token cookie AND verifies user via `prisma.user.findUnique`. Most API routes duplicate auth logic locally instead of importing it, and the 4 endpoints above add an unsafe fallback that bypasses the DB check, allowing token forgery → unauthorized order access/modification.
+
+**Recommendation**: Refactor all 4 unsafe endpoints to use the centralized `getSessionFromRequest` from `@/lib/auth`, or add `prisma.user.findUnique` verification before using `parseInt(token)` values.
+
 ## Security Fixes Applied (2026-04-10)
 
 - Added admin role verification in `/api/admin/affiliate` route
@@ -301,4 +317,7 @@ Create `src/app/api/[route]/route.ts`
 | 2026-05-08 | **User support ticket form & admin compose email**: Added contact form on /support for all users (logged-in or guest) to submit tickets via POST /api/support; admin can compose new emails to any address via "Compose Email" button on /admin/support using sendEmail utility; added translation keys (en/vi) for form labels and messages
 | 2026-05-08 | **Fixed admin compose email security**: Replaced direct client-side sendEmail call with secure server API route at /api/admin/send-email; admin support page now POSTs to this endpoint, preventing RESEND_API_KEY exposure and ensuring email sending works properly
 | 2026-05-08 | **Fixed getSessionFromRequest auth utility**: Added getSessionFromRequest export to src/lib/auth.ts; this function is now shared across all admin API routes (support, send-email, etc.) for consistent admin authentication
-| 2026-05-08 | **Fixed admin composer send-email**: Added `getComposeEmailHtml` function in lib/email.ts to wrap plain text message in HTML template; updated /api/admin/send-email to read supportEmail from settings.json (configurable in admin dashboard); fixed frontend to send `text` field instead of raw `html`; API now auto-converts text to HTML using template with OW SIM branding
+| 2026-05-08 | **Fixed admin composer send-email**: Added `getComposeEmailHtml` function in lib/email.ts to wrap plain text message in HTML template; updated /api/admin/send-email to read supportEmail from settings.json (configurable in admin dashboard); fixed frontend to send `text` field instead of raw `html`; API now auto-converts text to HTML using template with OW SIM branding |
+| 2026-05-10 | **Security audit findings**: Identified 4 API endpoints with unsafe auth-token parsing fallback (`parseInt(token)` without DB verification) — orders PUT, orders GET, orders/activate POST, and paypal/webhook PUT (CRITICAL). All should use centralized `getSessionFromRequest()` from `src/lib/auth.ts` or add `prisma.user.findUnique` verification. |
+| 2026-05-10 | **Fixed unsafe auth token parsing**: Removed raw `parseInt(token)` fallback in orders PUT, orders GET, orders/activate POST, and paypal/webhook PUT; all now use verified `getSessionFromRequest`, eliminating foreign key constraint errors and preventing auth bypass. |
+| 2026-05-10 | **Fixed missing order response**: Added missing `return NextResponse.json({ order }, { status: 201 })` after successful order creation in POST /api/orders, which previously returned undefined causing Next.js 500 error. |

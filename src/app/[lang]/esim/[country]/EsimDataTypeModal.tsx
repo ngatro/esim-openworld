@@ -394,12 +394,14 @@ return (
                 <label className="text-[11px] font-bold text-slate-900 uppercase mb-4 block tracking-wider">{t("esimDataTypeModal.step2")}</label>
                 {dataCategory === 'fup' ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {fupDurationOptions.map((d) => (
+                    {/* 1. Luôn hiện đủ các nút mặc định để khách có thể chọn lại tùy ý */}
+                    {[1, 3, 5, 10, 15, 30].map((d) => (
                       <button
                         key={d}
                         onClick={() => setSelectedDuration(d)}
                         className={`py-3 rounded-xl text-sm font-semibold transition-all border-2 ${
-                          selectedDuration === d && fupDurationOptions.includes(selectedDuration)
+                          // highlight màu cam nếu d trùng với selectedDuration truyền từ planCard vào
+                          selectedDuration === d
                             ? "border-orange-500 text-orange-600 bg-orange-50/30"
                             : "border-slate-100 text-slate-500 hover:border-slate-200"
                         }`}
@@ -411,7 +413,8 @@ return (
                       <input
                         type="number"
                         placeholder="Custom days..."
-                        value={fupDurationOptions.includes(selectedDuration) ? "" : selectedDuration}
+                        value={[1, 3, 5, 10, 15, 30].includes(selectedDuration) ? "" : selectedDuration}
+          
                         onChange={(e) => {
                           const val = parseInt(e.target.value);
                           if (val > 0) setSelectedDuration(val);
