@@ -320,9 +320,9 @@ return (
     </div>
 
     {/* Content Section: Đẩy Grid lên sát hơn */}
-    <div className="max-w-7xl mx-auto px-6 -mt-24 relative z-10">
+    <div className="max-w-7xl mx-auto px-6 -mt-24 relative z-10 ">
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 pb-12 ">
         {displayPlans.map((group, index) => (
           <FadeIn key={group.key}> 
             {/* Thêm wrapper để căn chỉnh card chuẩn hơn */}

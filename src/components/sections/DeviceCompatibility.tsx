@@ -77,9 +77,9 @@ export default function DeviceCompatibility() {
 
         <FadeIn delay={0.3}>
           <div className="mt-12 bg-orange-50 border border-slate-200 rounded-2xl p-8 text-center">
-            <p className="text-slate-600 mb-4">Not sure if your device supports eSIM?</p>
+            <p className="text-slate-600 mb-4">{t("device.notSure")}</p>
             <Link href={`/${locale}/compatibility`} className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium">
-              Check full compatibility list
+              {t("device.checkList")}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>

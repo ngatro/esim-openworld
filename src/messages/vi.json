@@ -697,14 +697,18 @@
     "button3": "Email",
     "button3desc": "Gửi email cho chúng tôi"
   },
-  "regions": {
-    "NA": "Bắc Mỹ",
-    "SA": "Nam Mỹ",
-    "EU": "Châu Âu",
-    "AS": "Châu Á",
-    "AF": "Châu Phi",
-    "OC": "Châu Đại Dương"
-  },
+   "regions": {
+      "global": "Toàn cầu",
+      "asia": "Châu Á",
+      "sea": "Đông Nam Á",
+      "europe": "Châu Âu",
+      "americas": "Châu Mỹ",
+      "north-america": "Bắc Mỹ",
+      "latam": "Mỹ Latinh",
+      "middle-east": "Trung Đông",
+      "africa": "Châu Phi",
+      "oceania": "Châu Đại Dương"
+    },
   "countries": {
     "AF": "Afghanistan",
     "AL": "Albania",
@@ -749,6 +753,7 @@
     "CR": "Costa Rica",
     "CI": "Bờ Biển Ngà",
     "HR": "Croatia",
+    "HK": "Hồng Kông",
     "CU": "Cuba",
     "CY": "Síp",
     "CZ": "Cộng hòa Séc",

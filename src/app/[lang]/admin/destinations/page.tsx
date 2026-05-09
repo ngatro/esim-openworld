@@ -48,6 +48,7 @@ const DEFAULT_DESTINATIONS: Omit<Destination, "landmark" | "imageUrl">[] = [
 ];
 
 const DEFAULT_REGIONS = [
+  { id: "global", name: "Global", emoji: "🌍", isVisible: true, priority: 0 },
   { id: "asia", name: "Asia", emoji: "🌏", isVisible: true, priority: 1 },
   { id: "europe", name: "Europe", emoji: "🏰", isVisible: true, priority: 2 },
   { id: "americas", name: "Americas", emoji: "🗽", isVisible: true, priority: 3 },

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { CODE_TO_COUNTRY } from '@/lib/countries';
 
 // 1. Map Quốc gia sang Ngôn ngữ (Dựa trên IP từ Cloudflare)
 const COUNTRY_TO_LANG: Record<string, string> = {
@@ -9,13 +10,13 @@ const COUNTRY_TO_LANG: Record<string, string> = {
   // Mặc định các nước còn lại sẽ là 'en'
 };
 
-const CODE_TO_COUNTRY: Record<string, string> = {
-  TH: 'thailand', VN: 'vietnam', JP: 'japan', KR: 'south-korea', CN: 'china',
-  US: 'united-states', AU: 'australia', SG: 'singapore', MY: 'malaysia', ID: 'indonesia',
-  PH: 'philippines', HK: 'hong-kong', TW: 'taiwan', IN: 'india', AE: 'uae',
-  GB: 'united-kingdom', FR: 'france', DE: 'germany', IT: 'italy', ES: 'spain', NL: 'netherlands',
-  CA: 'canada', MX: 'mexico', BR: 'brazil',
-};
+// const CODE_TO_COUNTRY: Record<string, string> = {
+//   TH: 'thailand', VN: 'vietnam', JP: 'japan', KR: 'south-korea', CN: 'china',
+//   US: 'united-states', AU: 'australia', SG: 'singapore', MY: 'malaysia', ID: 'indonesia',
+//   PH: 'philippines', HK: 'hong-kong', TW: 'taiwan', IN: 'india', AE: 'uae',
+//   GB: 'united-kingdom', FR: 'france', DE: 'germany', IT: 'italy', ES: 'spain', NL: 'netherlands',
+//   CA: 'canada', MX: 'mexico', BR: 'brazil',
+// };
 
 const COUNTRY_LOOKUP = Object.fromEntries(
   Object.entries(CODE_TO_COUNTRY).flatMap(([k, v]) => [
@@ -48,7 +49,12 @@ export async function proxy(request: NextRequest) {
   
   // Xác định ngôn ngữ đích dựa trên IP
   const detectedLang = COUNTRY_TO_LANG[cfCountry] || 'en';
-
+  
+  // CHẶN LỖI LOOP API
+  if (pathname.startsWith('/api/') || pathname.startsWith('/_next/') || pathname.includes('.')) {
+    return NextResponse.next();
+  }
+  
   // Nếu truy cập root (/)
   if (pathname === '/') {
     // Redirect thẳng đến ngôn ngữ đã nhận diện qua IP

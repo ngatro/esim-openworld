@@ -698,13 +698,17 @@
     "button3desc": "Senden Sie uns eine E-Mail"
   },
   "regions": {
-    "NA": "Nordamerika",
-    "SA": "Südamerika",
-    "EU": "Europa",
-    "AS": "Asien",
-    "AF": "Afrika",
-    "OC": "Ozeanien"
-  },
+      "global": "Global",
+      "asia": "Asien",
+      "sea": "Südostasien",
+      "europe": "Europa",
+      "americas": "Amerika",
+      "north-america": "Nordamerika",
+      "latam": "Lateinamerika",
+      "middle-east": "Naher Osten",
+      "africa": "Afrika",
+      "oceania": "Ozeanien"
+    },
   "countries": {
     "AF": "Afghanistan",
     "AL": "Albanien",
@@ -749,6 +753,7 @@
     "CR": "Costa Rica",
     "CI": "Elfenbeinküste",
     "HR": "Kroatien",
+    "HK": "Hongkong",
     "CU": "Kuba",
     "CY": "Zypern",
     "CZ": "Tschechien",

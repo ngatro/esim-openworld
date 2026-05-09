@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useI18n } from "../providers/I18nProvider";
+import FadeIn from "../animations/FadeIn";
 
 interface Region {
   id: string;
@@ -37,14 +38,53 @@ const REGIONS = [
 
 export default function PlansSection() {
   const { t, locale } = useI18n();
-  const [regions, setRegions] = useState<Region[]>([]);
 
-  useEffect(() => {
-    fetch("/api/regions")
-      .then((r) => r.json())
-      .then((data) => setRegions(data.regions || []))
-      .catch(console.error);
-  }, []);
+  const [regions, setRegions] = useState<any[]>([]);
+  const [topCountries, setTopCountries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+   useEffect(() => {
+      const fetchData = async () => {
+        try {
+          // Đảm bảo gọi API route chuẩn, nếu vẫn bị loop hãy thử gọi trực tiếp domain hoặc check lại middleware
+          const res = await fetch("/api/destinations"); 
+          if (!res.ok) throw new Error("Failed to fetch");
+          
+          const data = await res.json();
+  
+          const mappedRegions = (data.regions || []).map((r: any) => ({
+            id: r.id,
+            name: t(`regions.${r.id}`) || r.name,
+            countries: "10+", 
+            emoji: r.emoji || "🌍",
+          }));
+  
+          const countries = (data.destinations || []).map((d: any) => ({
+            id: d.id,
+            name: t(`countries.${d.id}`) || d.name,
+            emoji: d.emoji || "🌍"
+          }));
+  
+          setRegions(mappedRegions);
+          setTopCountries(countries);
+        } catch (err) {
+          console.error("Fetch error:", err);
+        } finally {
+          setLoading(false);
+        }
+      };
+  
+      fetchData();
+      // CHỈ để [t] ở đây, hoặc bỏ trống nếu không muốn nó chạy lại khi t thay đổi
+    }, [t]); 
+
+  // const [regions, setRegions] = useState<Region[]>([]);
+
+  // useEffect(() => {
+  //   fetch("/api/regions")
+  //     .then((r) => r.json())
+  //     .then((data) => setRegions(data.regions || []))
+  //     .catch(console.error);
+  // }, []);
 
   return (
     <section className="py-16 sm:py-20 bg-white">
@@ -58,7 +98,19 @@ export default function PlansSection() {
         <div className="mb-10">
           <h3 className="text-lg font-semibold text-slate-700 mb-4 text-center">{t("coverage.popular")}</h3>
           <div className="flex flex-wrap justify-center gap-3">
-            {REGIONS.map((region) => (
+            {regions.map((region, index) => (
+              <Link key={region.id} href={`/${locale}/esim/${region.id.toLowerCase()}`}>
+                  <FadeIn key={index} delay={index * 0.1}>
+                    <div className={`flex flex-col items-center p-4 rounded-lg`}>
+                      <span className="text-2xl mb-2">
+                        {region.emoji}
+                        </span>
+                      <h3 className="text-lg font-semibold text-slate-800">{region.name}</h3>
+                    </div>
+                  </FadeIn>
+              </Link>
+                      ))}
+            {/* {REGIONS.map((region) => (
                <Link key={region.id} href={`/${locale}/esim/${region.name}`}>
                  <motion.div
                    whileHover={{ scale: 1.05 }}
@@ -69,28 +121,32 @@ export default function PlansSection() {
                    <span className="font-medium text-slate-700">{region.name}</span>
                  </motion.div>
                </Link>
-             ))}
+             ))} */}
            </div>
          </div>
 
          {/* Hot Countries */}
-         <div className="mb-10">
-           <h3 className="text-lg font-semibold text-slate-700 mb-4 text-center">{t("coverage.title")}</h3>
-           <div className="flex flex-wrap justify-center gap-3">
-             {HOT_COUNTRIES.map((country) => (
-               <Link key={country.code} href={`/${locale}/esim/${country.code}`}>
-                 <motion.div
-                   whileHover={{ scale: 1.05 }}
-                   whileTap={{ scale: 0.95 }}
-                   className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-orange-400 hover:shadow-md rounded-xl transition-all"
-                 >
-                   <span className="text-xl">{country.emoji}</span>
-                   <span className="font-medium text-slate-700 text-sm">{country.name}</span>
-                 </motion.div>
-               </Link>
-             ))}
-           </div>
-         </div>
+        <div className="mb-10">
+          <h3 className="text-lg font-semibold text-slate-700 mb-4 text-center">
+            {t("coverage.title")}
+          </h3>
+  
+          { /* Chuyển từ flex sang grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {topCountries.map((country, index) => (
+              <Link key={country.id} href={`/${locale}/esim/${country.id}`} className="block">
+                <FadeIn>
+                  <span 
+                    className="flex items-center justify-center bg-orange-100 text-slate-700 px-3 py-2.5 rounded-lg text-sm hover:bg-orange-200 hover:text-orange-800 transition-colors cursor-pointer w-full h-full text-center whitespace-nowrap"
+                  >
+                    <span className="mr-2">{country.emoji}</span>
+                    <span className="truncate">{country.name}</span>
+                  </span>
+                </FadeIn>
+              </Link>
+            ))}
+          </div>
+        </div>
 
          {/* View All Button */}
          <div className="text-center">

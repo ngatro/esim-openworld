@@ -3,25 +3,82 @@
 import { motion } from "framer-motion";
 import FadeIn from "@/components/animations/FadeIn";
 import { useI18n } from "@/components/providers/I18nProvider";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
-
+// CHUYỂN CÁI NÀY RA NGOÀI để không bị tạo mới mỗi lần render
+const REGION_COLORS: Record<string, string> = {
+  europe: "bg-blue-100",
+  asia: "bg-red-100",
+  americas: "bg-green-100",
+  middleeast: "bg-purple-100",
+  africa: "bg-yellow-100",
+  oceania: "bg-pink-100",
+};
 
 export default function Coverage() {
-  const { t } = useI18n();
-    const regions = [
-    { name: `${t("coverage.regions.europe")}`, countries: "35+", flag: "🇪🇺", color: "bg-blue-100" },
-    { name: `${t("coverage.regions.asia")}`, countries: "40+", flag: "🌏", color: "bg-red-100" },
-    { name: `${t("coverage.regions.americas")}`, countries: "30+", flag: "🌎", color: "bg-green-100" },
-    { name: `${t("coverage.regions.middleEast")}`, countries: "15+", flag: "🕌", color: "bg-purple-100" },
-    { name: `${t("coverage.regions.africa")}`, countries: "50+", flag: "🌍", color: "bg-yellow-100" },
-    { name: `${t("coverage.regions.oceania")}`, countries: "10+", flag: "🦘", color: "bg-pink-100" },
-  ];
+  const { t, locale } = useI18n();
+  const router = useRouter();
 
-  const topCountries = [
-    "🇺🇸 United States", "🇬🇧 United Kingdom", "🇫🇷 France", "🇩🇪 Germany",
-    "🇮🇹 Italy", "🇪🇸 Spain", "🇯🇵 Japan", "🇰🇷 South Korea", "🇦🇺 Australia",
-    "🇨🇦 Canada", "🇹🇭 Thailand", "🇻🇳 Vietnam", "🇸🇬 Singapore", "🇦🇪 UAE"
-  ];
+  const [regions, setRegions] = useState<any[]>([]);
+  const [topCountries, setTopCountries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Đảm bảo gọi API route chuẩn, nếu vẫn bị loop hãy thử gọi trực tiếp domain hoặc check lại middleware
+        const res = await fetch("/api/destinations"); 
+        if (!res.ok) throw new Error("Failed to fetch");
+        
+        const data = await res.json();
+
+        const mappedRegions = (data.regions || []).map((r: any) => ({
+          id: r.id,
+          name: t(`regions.${r.id}`) || r.name,
+          countries: "10+", 
+          flag: r.emoji || "🌍",
+          color: REGION_COLORS[r.id] || "bg-gray-100",
+        }));
+
+        const countries = (data.destinations || []).map((d: any) => ({
+          id: d.id,
+          name: t(`countries.${d.id}`) || d.name,
+          emoji: d.emoji || "🌍"
+        }));
+
+        setRegions(mappedRegions);
+        setTopCountries(countries);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    // CHỈ để [t] ở đây, hoặc bỏ trống nếu không muốn nó chạy lại khi t thay đổi
+  }, [t]); 
+  
+  if (loading) return null; // Hoặc loading spinner
+
+//   return (
+//     <section className="py-24 bg-orange-50">
+//       {/* ... giữ nguyên phần JSX bên dưới ... */}
+//       <div className="flex flex-wrap justify-center gap-3">
+//         {topCountries.map((country, index) => (
+//           <span 
+//             key={country.id || index}
+//             onClick={() => router.push(`/${locale}/esim/${country.id}`)} 
+//             className="bg-orange-100 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-orange-200 hover:text-orange-800 transition-colors cursor-pointer"
+//           >
+//             {country.emoji} {country.name} 
+//           </span>
+//         ))}
+//       </div>
+//     </section>
+//   );
+// }
 
   return (
     <section className="py-24 bg-orange-50">
@@ -38,14 +95,16 @@ export default function Coverage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
           {regions.map((region, index) => (
             <FadeIn key={index} delay={index * 0.1}>
-              <motion.div 
-                className={`${region.color} border border-slate-200 rounded-xl p-4 text-center hover:border-orange-400 hover:shadow-md transition-all cursor-pointer`}
-                whileHover={{ scale: 1.05 }}
-              >
-                <div className="text-3xl mb-2">{region.flag}</div>
-                <h3 className="font-semibold text-slate-800">{region.name}</h3>
-                <p className="text-sm text-slate-500">{region.countries} {t("coverage.countries")}</p>
-              </motion.div>
+              <div className={`flex flex-col items-center p-4 rounded-lg ${region.color}`}>
+                <span
+                className="text-4xl mb-2"
+                onClick={() => router.push(`/${locale}/esim/${region.id.toLowerCase()}`)} 
+                >
+                  {region.flag}
+                  </span>
+                <h3 className="text-lg font-semibold text-slate-800">{region.name}</h3>
+                <p className="text-sm text-slate-600">{region.countries}</p>
+              </div>
             </FadeIn>
           ))}
         </div>
@@ -55,8 +114,12 @@ export default function Coverage() {
             <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">{t("coverage.popular")}</h3>
             <div className="flex flex-wrap justify-center gap-3">
               {topCountries.map((country, index) => (
-                <span key={index} className="bg-orange-100 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-orange-200 hover:text-orange-800 transition-colors cursor-pointer">
-                  {country}
+                <span 
+                  key={country.id || index}
+                  onClick={() => router.push(`/${locale}/esim/${country.id}`)} 
+                  className="bg-orange-100 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-orange-200 hover:text-orange-800 transition-colors cursor-pointer"
+                >
+                  {country.emoji} {country.name} 
                 </span>
               ))}
             </div>
