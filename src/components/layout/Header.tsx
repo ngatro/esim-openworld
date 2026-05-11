@@ -10,7 +10,6 @@ import { useUI } from "@/components/providers/UIProvider";
 import { useI18n, SUPPORTED_LOCALES } from "@/components/providers/I18nProvider";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import EsimIcon from "../ui/EsimIcon";
 
 const DEFAULT_HOT_COUNTRIES = [
   { code: "JP", name: "Japan", emoji: "🇯🇵" },
@@ -166,7 +165,7 @@ const userItems = mounted && user ? [
             <Link href={`/${locale}`} className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center">
                 <Image
-                  src="/esim.svg"
+                  src="/logo.png"
                   alt="eSIM Logo"
                   width={64}
                   height={64}

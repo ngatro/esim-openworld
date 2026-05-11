@@ -59,7 +59,7 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
     title: titles[lang] || titles.en,
     description: descriptions[lang] || descriptions.en,
     icons: {
-      icon: "/esim.svg",
+      icon: "/favicon.ico",
       apple: "/apple-touch-icon.png",
     },
     alternates: {

@@ -148,8 +148,15 @@ export async function POST(request: Request) {
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("PayPal create order error:", data);
-      return NextResponse.json({ error: data.message || data.details?.[0]?.description || "PayPal failed" }, { status: 500 });
+      console.error("PayPal create order error:", {
+        status: res.status,
+        statusText: res.statusText,
+        body: data
+      });
+      return NextResponse.json(
+        { error: data.message || data.details?.[0]?.description || "PayPal failed" },
+        { status: 500 }
+      );
     }
 
     const approveLink = data.links?.find((l: { rel: string }) => l.rel === "approve");
@@ -160,7 +167,7 @@ export async function POST(request: Request) {
       status: data.status,
     });
   } catch (error) {
-    console.error("PayPal error:", error);
+    console.error("PayPal POST error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
