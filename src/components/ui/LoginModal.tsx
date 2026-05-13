@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { signIn } from "next-auth/react";
 import { useUI } from "@/components/providers/UIProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function LoginModal() {
   const { isLoginOpen, closeLogin, openRegister, openResetPassword } = useUI();
@@ -16,6 +17,7 @@ export default function LoginModal() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     setMounted(true);
@@ -41,7 +43,7 @@ export default function LoginModal() {
     if (success) {
       closeLogin();
     } else {
-      setError("Invalid email or password");
+      setError(t("loginModal.invalidCredentials"));
     }
   }
 
@@ -92,8 +94,8 @@ export default function LoginModal() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
-                <p className="text-slate-500 text-sm mt-1">Sign in to continue to OpenWorld eSIM</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t("loginModal.title")}</h2>
+                <p className="text-slate-500 text-sm mt-1">{t("loginModal.description")}</p>
               </div>
             </motion.div>
             
@@ -122,7 +124,7 @@ export default function LoginModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("loginModal.email")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +135,7 @@ export default function LoginModal() {
                       type="email"
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
-                      placeholder="you@example.com"
+                      placeholder={t("loginModal.placeholderEmail")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -145,7 +147,7 @@ export default function LoginModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("loginModal.password")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +158,7 @@ export default function LoginModal() {
                       type={showPassword ? "text" : "password"}
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all pr-12"
-                      placeholder="Enter your password"
+                      placeholder={t("loginModal.placeholderPassword")}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -188,10 +190,10 @@ export default function LoginModal() {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
                     />
-                    <span className="text-sm text-slate-600">Remember me</span>
+                    <span className="text-sm text-slate-600">{t("loginModal.rememberMe")}</span>
                   </label>
                   <button type="button" onClick={() => openResetPassword()} className="text-sm text-orange-500 hover:text-orange-600 font-medium">
-                    Forgot password?
+                    {t("loginModal.forgotPassword")}
                   </button>
                 </div>
               </div>
@@ -211,7 +213,7 @@ export default function LoginModal() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  Continue with Google
+                  {t("loginModal.continueWithGoogle")}
                 </button>
               </div>
 
@@ -228,11 +230,11 @@ export default function LoginModal() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span>Signing in...</span>
+                    <span>{t("loginModal.loading")}</span>
                   </div>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Sign In
+                    {t("loginModal.submit")}
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
@@ -247,12 +249,12 @@ export default function LoginModal() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              Don&apos;t have an account?{" "}
+              {t("loginModal.noAccount")}{" "}
               <button
                 onClick={openRegister}
                 className="text-orange-500 hover:text-orange-600 font-medium transition-colors relative group"
               >
-                Sign up
+                {t("loginModal.signUp")}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
               </button>
             </motion.p>
@@ -267,7 +269,7 @@ export default function LoginModal() {
                 onClick={() => openResetPassword()}
                 className="text-orange-500 hover:text-orange-600 font-medium transition-colors relative group"
               >
-                Forgot password?
+                {t("loginModal.forgotPassword")}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
               </button>
             </motion.p>

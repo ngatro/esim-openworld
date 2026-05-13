@@ -67,10 +67,16 @@ export async function proxy(request: NextRequest) {
 
   // --- HẾT LOGIC TỰ ĐỘNG CHỌN NGÔN NGỮ ---
 
-  const pathMatch = pathname.match(/^\/([a-z]{2})(.*)$/);
+  // 1. Kiểm tra xem URL đã có sẵn ngôn ngữ hợp lệ chưa (vi, en, de, fr)
+  const pathMatch = pathname.match(/^\/([a-z]{2})(\/.*|$)/); // Sửa lại regex để bắt được cả /vi và /vi/
+  const supportedLangs = ['en', 'de', 'fr', 'vi'];
   let langPrefix = '';
   let restOfPath = pathname;
   
+  let currentLang = '';
+  if (pathMatch && supportedLangs.includes(pathMatch[1])) {
+    currentLang = pathMatch[1];
+  }
   if (pathMatch) {
     const [, lang, rest] = pathMatch;
     if (['en', 'de', 'fr', 'vi'].includes(lang)) {
@@ -83,6 +89,12 @@ export async function proxy(request: NextRequest) {
     const response = NextResponse.redirect(new URL(`/${detectedLang}${pathname}`, request.url), 301);
     return response;
   }
+
+  
+
+  
+  
+  
 
   // --- CÁC SEO REDIRECTS CŨ CỦA BẠN ---
   

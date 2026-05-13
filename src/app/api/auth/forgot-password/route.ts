@@ -5,33 +5,33 @@ import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
-  try {
-    const { email } = await request.json();
+    try {
+      const { email, lang = "en" } = await request.json();
 
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
+      if (!email) {
+        return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      }
 
-    const user = await getUserByEmail(email);
-    if (!user) {
-      // Don't reveal if email exists
-      return NextResponse.json({ success: true, message: "If email exists, reset link sent" });
-    }
+      const user = await getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists
+        return NextResponse.json({ success: true, message: "If email exists, reset link sent" });
+      }
 
-    // Generate reset token
-    const resetToken = uuidv4();
-    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      // Generate reset token
+      const resetToken = uuidv4();
+      const resetExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetToken,
-        resetExpiry,
-      },
-    });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken,
+          resetExpiry,
+        },
+      });
 
-    // Send reset email
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://owsim.com"}/reset-password?token=${resetToken}`;
+      // Send reset email - include lang in the URL
+      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://owsim.com"}/${lang}/reset-password?token=${resetToken}`;
     
     await sendEmail({
       to: email,

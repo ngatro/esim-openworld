@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUI } from "@/components/providers/UIProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function RegisterModal() {
   const { isRegisterOpen, closeRegister, openLogin, openResetPassword } = useUI();
@@ -16,6 +17,7 @@ export default function RegisterModal() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     setMounted(true);
@@ -104,8 +106,8 @@ export default function RegisterModal() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800">Create Account</h2>
-                <p className="text-slate-500 text-sm mt-1">Join OpenWorld eSIM and stay connected everywhere</p>
+                <h2 className="text-2xl font-bold text-slate-800">{t("signUpModal.title")}</h2>
+                <p className="text-slate-500 text-sm mt-1">{t("signUpModal.description")}</p>
               </div>
             </motion.div>
             
@@ -134,7 +136,7 @@ export default function RegisterModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Full Name</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("signUpModal.name")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -145,7 +147,7 @@ export default function RegisterModal() {
                       type="text"
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
-                      placeholder="John Doe"
+                      placeholder={`${t("signUpModal.placeholderName")}`}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                     />
@@ -157,7 +159,7 @@ export default function RegisterModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("signUpModal.email")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,7 +170,7 @@ export default function RegisterModal() {
                       type="email"
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
-                      placeholder="you@example.com"
+                      placeholder={`${t("signUpModal.placeholderEmail")}`}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -180,7 +182,7 @@ export default function RegisterModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("signUpModal.password")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +193,7 @@ export default function RegisterModal() {
                       type={showPassword ? "text" : "password"}
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all pr-12"
-                      placeholder="Create a password"
+                      placeholder={`${t("signUpModal.placeholderPassword")}`}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -220,7 +222,7 @@ export default function RegisterModal() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <label className="block text-sm font-medium text-slate-600 mb-1.5">Confirm Password</label>
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("signUpModal.confirmPassword")}</label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,7 +233,7 @@ export default function RegisterModal() {
                       type={showPassword ? "text" : "password"}
                       required
                       className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
-                      placeholder="Confirm your password"
+                      placeholder={`${t("signUpModal.placeholderConfirmPassword")}`}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                     />
@@ -252,11 +254,11 @@ export default function RegisterModal() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span>Creating account...</span>
+                    <span>{t("signUpModal.loading")}</span>
                   </div>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    Create Account
+                    {t("signUpModal.submit")}
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                     </svg>
@@ -271,12 +273,12 @@ export default function RegisterModal() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.45 }}
             >
-              Already have an account?{" "}
+              {t("signUpModal.hasAccount")}{" "}
               <button
                 onClick={openLogin}
                 className="text-orange-500 hover:text-orange-600 font-medium transition-colors relative group"
               >
-                Sign in
+                {t("signUpModal.signIn")}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
               </button>
             </motion.p>

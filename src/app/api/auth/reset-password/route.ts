@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    const { token, password, locale = "en" } = await request.json();
+    const { token, password, lang = "en" } = await request.json();
 
     if (!token || !password) {
       return NextResponse.json({ error: "Token and password required" }, { status: 400 });
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, message: "Password reset successful", locale });
+    return NextResponse.json({ success: true, message: "Password reset successful", lang });
   } catch (error) {
     console.error("Reset password error:", error);
     return NextResponse.json({ error: "Failed to reset password" }, { status: 500 });

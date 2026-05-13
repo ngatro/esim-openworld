@@ -1,0 +1,21 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Enabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 9293,
+            "sshOptions": {
+                "port": 22,
+                "host": "161.97.94.115",
+                "username": "root",
+                "password": "Cuongbucac123@"
+            },
+            "driver": "PostgreSQL",
+            "name": "owsim",
+            "database": "owsim",
+            "username": "admin",
+            "password": "rXCFpTDwkKR56nfP"
+        }
+    ]
+}

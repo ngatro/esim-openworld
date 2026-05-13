@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { useUI } from "@/components/providers/UIProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function ResetPasswordModal() {
-  const { isResetPasswordOpen, resetPasswordToken, closeResetPassword, openLogin } = useUI();
+  const { isResetPasswordOpen, resetPasswordToken, closeResetPassword, openLogin, openResetPassword } = useUI();
   const { refreshUser } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -15,10 +17,19 @@ export default function ResetPasswordModal() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { t, locale: lang } = useI18n();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const token = searchParams.get("token");
+    if (token && !resetPasswordToken) {
+      openResetPassword(token);
+    }
+  }, [searchParams, resetPasswordToken, openResetPassword]);
 
   useEffect(() => {
     if (isResetPasswordOpen) {
@@ -50,7 +61,7 @@ export default function ResetPasswordModal() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetPasswordToken, password }),
+        body: JSON.stringify({ token: resetPasswordToken, password, lang }),
       });
       const data = await res.json();
 
@@ -84,7 +95,7 @@ export default function ResetPasswordModal() {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: password }),
+        body: JSON.stringify({ email: password, lang }),
       });
       const data = await res.json();
 
@@ -148,12 +159,12 @@ export default function ResetPasswordModal() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800">
-                  {resetPasswordToken ? "Reset Password" : "Forgot Password"}
+                  {resetPasswordToken ? `${t("resetPasswordModal.title1")}` : `${t("resetPasswordModal.title2")}`}
                 </h2>
                 <p className="text-slate-500 text-sm mt-1">
                   {resetPasswordToken 
-                    ? "Enter your new password below" 
-                    : "Enter your email and we'll send you a reset link"}
+                    ? `${t("resetPasswordModal.desc1")}` 
+                    : `${t("resetPasswordModal.desc2")}`}
                 </p>
               </div>
             </motion.div>
@@ -171,14 +182,14 @@ export default function ResetPasswordModal() {
                 </div>
                 <p className="text-slate-600 mb-4">
                   {resetPasswordToken 
-                    ? "Password reset successfully!" 
-                    : "Check your email for reset link"}
+                    ? `${t("resetPasswordModal.success1")}` 
+                    : `${t("resetPasswordModal.success2")}`}
                 </p>
                 <button
                   onClick={openLogin}
                   className="text-orange-500 hover:text-orange-600 font-medium"
                 >
-                  Back to Login
+                  {t("resetPasswordModal.backToLogin")}
                 </button>
               </motion.div>
             ) : (
@@ -209,7 +220,7 @@ export default function ResetPasswordModal() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.15 }}
                       >
-                        <label className="block text-sm font-medium text-slate-600 mb-1.5">New Password</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("resetPasswordModal.newPassword")}</label>
                         <div className="relative">
                           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,7 +231,7 @@ export default function ResetPasswordModal() {
                             type={showPassword ? "text" : "password"}
                             required
                             className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all pr-12"
-                            placeholder="Enter new password"
+                            placeholder={`${t("resetPasswordModal.placeholderNewPassword")}`}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                           />
@@ -248,7 +259,7 @@ export default function ResetPasswordModal() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 }}
                       >
-                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Confirm Password</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("resetPasswordModal.confirmNewPassword")}</label>
                         <div className="relative">
                           <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +270,7 @@ export default function ResetPasswordModal() {
                             type={showPassword ? "text" : "password"}
                             required
                             className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all pr-12"
-                            placeholder="Confirm new password"
+                            placeholder={`${t("resetPasswordModal.placeholderConfirmNewPassword")}`}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                           />
@@ -272,7 +283,7 @@ export default function ResetPasswordModal() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.15 }}
                     >
-                      <label className="block text-sm font-medium text-slate-600 mb-1.5">Email Address</label>
+                      <label className="block text-sm font-medium text-slate-600 mb-1.5">{t("resetPasswordModal.email")}</label>
                       <div className="relative">
                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,7 +294,7 @@ export default function ResetPasswordModal() {
                           type="email"
                           required
                           className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-12 py-3 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
-                          placeholder="you@example.com"
+                          placeholder={`${t("resetPasswordModal.placeholderEmail")}`}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                         />
@@ -305,11 +316,11 @@ export default function ResetPasswordModal() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>{resetPasswordToken ? "Resetting..." : "Sending..."}</span>
+                      <span>{resetPasswordToken ? `${t("resetPasswordModal.loading1")}` : `${t("resetPasswordModal.loading2")}`}</span>
                     </div>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
-                      {resetPasswordToken ? "Reset Password" : "Send Reset Link"}
+                      {resetPasswordToken ? `${t("resetPasswordModal.button1")}` : `${t("resetPasswordModal.button2")}`}
                       <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
@@ -326,12 +337,12 @@ export default function ResetPasswordModal() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
-                Remember your password?{" "}
+                {t("resetPasswordModal.rememberPassword")}{" "}
                 <button
                   onClick={openLogin}
                   className="text-orange-500 hover:text-orange-600 font-medium transition-colors relative group"
                 >
-                  Sign in
+                  {t("resetPasswordModal.signIn")}
                   <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-orange-500 group-hover:w-full transition-all duration-300"></span>
                 </button>
               </motion.p>
