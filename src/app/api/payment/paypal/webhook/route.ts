@@ -108,7 +108,22 @@ async function activateEsimAndEmail(
   extraDays: number = 0,
   topupPackageCode: string | null = null
 ) {
-  // Idempotency: Check if already activated
+  // Lock: Only one process can activate this order
+  const lockResult = await prisma.orderItem.updateMany({
+    where: {
+      orderId,
+      esimIccid: null,
+      smdpStatus: { not: "PROCESSING" },
+    },
+    data: { smdpStatus: "PROCESSING" },
+  });
+
+  if (lockResult.count === 0) {
+    console.log(`[AUTO] Order ${orderId}: Already being processed by another request, skipping`);
+    return;
+  }
+
+  // Idempotency: Check if already activated (double-check after acquiring lock)
   const existingOrderItem = await prisma.orderItem.findFirst({ where: { orderId } });
   if (existingOrderItem?.esimIccid) {
     console.log(`[AUTO] Order ${orderId}: Already activated (has ICCID ${existingOrderItem.esimIccid}), skipping`);

@@ -223,7 +223,9 @@ export async function createOrder(params: {
   esimTranNo?: string;
   periodNum?: string;
 }): Promise<EsimListItem> {
-  const transactionId = `OW-${params.orderId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const transactionId = params.orderId
+    ? `OW-${params.orderId}`
+    : `OW-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const body: Record<string, unknown> = {
     transactionId,
