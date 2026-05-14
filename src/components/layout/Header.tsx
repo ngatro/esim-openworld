@@ -167,11 +167,10 @@ const userItems = mounted && user ? [
                 <Image
                   src="/logo.png"
                   alt="eSIM Logo"
-                  width={64}
-                  height={64}
+                  width={45}
+                  height={45}
                   priority
-                  
-                  className="w-[150%] h-[150%] max-w-none text-white object-contain"
+                  className=" w-full h-auto text-white object-contain"
                 />
               </div>
               <span className="text-lg font-semibold text-slate-800">
@@ -190,15 +189,20 @@ const userItems = mounted && user ? [
                 onMouseLeave={() => setActiveDropdown(null)}
               >
                 {item.children ? (
-                  <button className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-slate-600 hover:text-orange-500 transition-colors">
+                  <button className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-slate-600 hover:text-orange-500 transition-colors ">
                     {item.label}
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
                 ) : (
-                  <Link href={item.href} className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-orange-500 transition-colors">
+                  <Link 
+                    href={item.href} 
+                    className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-orange-500 transition-colors relative group"
+                  >
                     {item.label}
+                    {/* Thanh gạch chân giả nằm ở đây */}
+                    <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-orange-500 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
                   </Link>
                 )}
 
@@ -210,64 +214,74 @@ const userItems = mounted && user ? [
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -5 }}
                       className={`absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 ${
-                        item.href === "/plans" ? "w-[480px]" : "w-56"
+                        item.href.endsWith("/plans") ? "w-[480px]" : "w-56"
                       }`}
                     >
-                      {item.href === "/plans" ? (
+                      {item.href.endsWith("/plans") ? (
+                        <>
                           <div className="px-4 pt-3">
-                           <Link href={`/${locale}/plans`} className="flex items-center justify-center gap-2 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors mb-3">
-                             <span>🌐</span> {t("header.allPlans")}
-                           </Link>
-                         </div>
-                      ) : (
-                        null
-                      )}
-                      {item.href === "/plans" ? (
-                        <div className="grid grid-cols-2 gap-4 px-4 pb-3">
-                          <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">{t("header.popularRegions")}</p>
-                            <div className="space-y-0.5">
-                              {regions.map((r: { id: string; name: string; emoji: string }, idx: number) => (
-                                <Link
-                                  key={idx}
-                                  href={`/${locale}/plans?regionId=${r.id}`}
-                                  className="flex items-center gap-2 py-1.5 text-sm text-slate-600 hover:text-orange-500 transition-colors"
-                                >
-                                  {r.emoji && <span>{r.emoji}</span>}
-                                  {r.name}
-                                </Link>
-                              ))}
+                            <Link
+                              href={`/${locale}/plans`}
+                              className="flex items-center justify-center gap-2 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors mb-3"
+                            >
+                              <span>🌐</span> {t("header.allPlans")}
+                            </Link>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 px-4 pb-3">
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
+                                {t("header.popularRegions")}
+                              </p>
+                              <div className="space-y-0.5">
+                                {regions.map((r: any, idx: number) => (
+                                  <Link
+                                    key={idx}
+                                    href={`/${locale}/plans?regionId=${r.id}`}
+                                    className="flex items-center gap-2 py-1 text-sm text-slate-600 hover:text-orange-500 transition-all w-fit bg-gradient-to-r from-orange-500 to-orange-500 bg-[length:0%_2px] bg-left-bottom bg-no-repeat hover:bg-[length:100%_2px] duration-300"
+                                  >
+                                    {r.emoji && <span>{r.emoji}</span>}
+                                    {/* {r.name.toLowerCase()} */}
+                                    <span>{t(`regions.${r.name.toLowerCase()}`)}</span>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
+                                {t("header.hotCountries")}
+                              </p>
+                              <div className="space-y-0.5">
+                                {hotCountries.map((c: any, idx: number) => (
+                                  <Link
+                                    key={idx}
+                                    href={`/${locale}/plans?countryId=${c.code}`}
+                                    className="flex items-center gap-2 py-1 text-sm text-slate-600 hover:text-orange-500 transition-all w-fit bg-gradient-to-r from-orange-500 to-orange-500 bg-[length:0%_2px] bg-left-bottom bg-no-repeat hover:bg-[length:100%_2px] duration-300"
+                                  >
+                                    {c.emoji && <span>{c.emoji}</span>}
+                                    <span>{t(`countries.${c.code}`)}</span>
+                                  </Link>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div>
-                            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">{t("header.hotCountries")}</p>
-                            <div className="space-y-0.5">
-                              {hotCountries.map((c: { code: string; name: string; emoji: string }, idx: number) => (
-                                <Link
-                                  key={idx}
-                                  href={`/${locale}/plans?countryId=${c.code}`}
-                                  className="flex items-center gap-2 py-1.5 text-sm text-slate-600 hover:text-orange-500 transition-colors"
-                                >
-                                  {c.emoji && <span>{c.emoji}</span>}
-                                  {c.name}
-                                </Link>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        </>
                       ) : (
-                        item.children.map((child: { label: string; href: string; children?: { label: string; href: string; emoji?: string }[] }, idx: number) => (
+                        item.children.map((child: any, idx: number) => (
                           child.label === "divider" ? (
                             <div key={idx} className="my-1 border-t border-slate-100" />
                           ) : child.children ? (
                             <div key={idx} className="px-4 py-1">
-                              <p className="text-xs font-semibold text-slate-400 uppercase mb-1">{child.label}</p>
+                              <p className="text-xs font-semibold text-slate-400 uppercase mb-1">
+                                {child.label}
+                              </p>
                               <div className="space-y-0.5">
-                                {child.children.map((sub: { label: string; href: string; emoji?: string }, subIdx: number) => (
+                                {child.children.map((sub: any, subIdx: number) => (
                                   <Link
                                     key={subIdx}
                                     href={sub.href}
-                                    className="flex items-center gap-2 py-1.5 text-sm text-slate-600 hover:text-orange-500 transition-colors"
+                                    className="flex items-center gap-2 py-1 text-sm text-slate-600 hover:text-orange-500 transition-all w-fit bg-gradient-to-r from-orange-500 to-orange-500 bg-[length:0%_2px] bg-left-bottom bg-no-repeat hover:bg-[length:100%_2px] duration-300"
                                   >
                                     {sub.emoji && <span>{sub.emoji}</span>}
                                     {sub.label}
@@ -276,13 +290,14 @@ const userItems = mounted && user ? [
                               </div>
                             </div>
                           ) : (
-                            <Link
-                              key={idx}
-                              href={child.href}
-                              className="block px-4 py-2 text-sm text-slate-600 hover:text-orange-500 hover:bg-orange-50 transition-colors"
-                            >
-                              {child.label}
-                            </Link>
+                            <div key={idx} className="px-4">
+                              <Link
+                                href={child.href}
+                                className="flex items-center py-2 text-sm text-slate-600 hover:text-orange-500 transition-all w-fit bg-gradient-to-r from-orange-500 to-orange-500 bg-[length:0%_2px] bg-left-bottom bg-no-repeat hover:bg-[length:100%_2px] duration-300"
+                              >
+                                {child.label}
+                              </Link>
+                            </div>
                           )
                         ))
                       )}

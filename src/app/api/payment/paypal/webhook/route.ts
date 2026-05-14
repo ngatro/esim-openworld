@@ -266,93 +266,95 @@ export async function POST(request: Request) {
 
     if (event.event_type === "PAYMENT.CAPTURE.COMPLETED") {
       const paypalOrderId = event.resource?.supplementary_data?.related_ids?.order_id;
-      if (paypalOrderId) {
-        const token = await getAccessToken();
-        const verifyRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${paypalOrderId}`, {
-          headers: { "Authorization": `Bearer ${token}` },
-        });
-        const orderData = await verifyRes.json();
+if (paypalOrderId) {
+         const token = await getAccessToken();
+         const verifyRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${paypalOrderId}`, {
+           headers: { "Authorization": `Bearer ${token}` },
+         });
+         const orderData = await verifyRes.json();
 
-         if (orderData.status === "APPROVED" || orderData.status === "COMPLETED") {
-           // Idempotency: Check if order already exists for this PayPal order ID
-           const existingOrder = await prisma.order.findFirst({
-             where: { esimaccessOrderId: paypalOrderId },
-             include: { orderItems: true },
-           });
-           
-           if (existingOrder) {
-             console.log("[PayPal Webhook] Order already exists for PayPal order", paypalOrderId);
-             return NextResponse.json({ received: true, alreadyProcessed: true });
+         if (orderData.status === "COMPLETED") {
+            // Create order using upsert to prevent duplicates from concurrent webhook + frontend requests
+            const customId = orderData.purchase_units?.[0]?.custom_id;
+           let planId = "";
+           let isTopupMode = false;
+           let selectedDuration: number | undefined;
+           let topupPackageCode: string | undefined;
+           try {
+             const parsed = JSON.parse(customId || "{}");
+             planId = parsed.planId || "";
+             isTopupMode = parsed.isTopupMode || false;
+             selectedDuration = parsed.selectedDuration;
+             topupPackageCode = parsed.topupPackageCode;
+           } catch {}
+
+           // Get top-up metadata if in top-up mode
+           let extraDays = 0;
+           let topupPkgCode: string | null = topupPackageCode || null;
+           let basePlanDays: number | null = null;
+
+           if (isTopupMode && planId) {
+             const plan = await prisma.plan.findUnique({ where: { id: planId } });
+             if (plan && selectedDuration) {
+               extraDays = selectedDuration - plan.durationDays;
+               basePlanDays = plan.durationDays;
+               if (extraDays > 0) {
+                 // Use passed topupPackageCode, or fetch from DB as fallback
+                 if (!topupPkgCode) {
+                   const topupPkg = await prisma.topupPackage.findFirst({
+                     where: { planId: plan.id, isActive: true, isFlexible: true },
+                   });
+                   topupPkgCode = topupPkg?.packageCode || null;
+                 }
+               }
+             }
            }
 
-           const customId = orderData.purchase_units?.[0]?.custom_id;
-          let planId = "";
-          let isTopupMode = false;
-          let selectedDuration: number | undefined;
-          let topupPackageCode: string | undefined;
-          try { 
-            const parsed = JSON.parse(customId || "{}");
-            planId = parsed.planId || "";
-            isTopupMode = parsed.isTopupMode || false;
-            selectedDuration = parsed.selectedDuration;
-            topupPackageCode = parsed.topupPackageCode;
-          } catch {}
+           const amount = parseFloat(orderData.purchase_units?.[0]?.amount?.value || "0");
 
-          // Get top-up metadata if in top-up mode
-          let extraDays = 0;
-          let topupPkgCode: string | null = topupPackageCode || null;
-          let basePlanDays: number | null = null;
-          
-          if (isTopupMode && planId) {
-            const plan = await prisma.plan.findUnique({ where: { id: planId } });
-            if (plan && selectedDuration) {
-              extraDays = selectedDuration - plan.durationDays;
-              basePlanDays = plan.durationDays;
-              if (extraDays > 0) {
-                // Use passed topupPackageCode, or fetch from DB as fallback
-                if (!topupPkgCode) {
-                  const topupPkg = await prisma.topupPackage.findFirst({
-                    where: { planId: plan.id, isActive: true, isFlexible: true },
-                  });
-                  topupPkgCode = topupPkg?.packageCode || null;
-                }
-              }
-            }
-          }
+           try {
+             const order = await prisma.order.upsert({
+               where: { esimaccessOrderId: paypalOrderId },
+               update: {}, // Already exists, do nothing
+               create: {
+                 totalAmount: amount,
+                 status: "completed",
+                 customerEmail: orderData.payer?.email_address || "",
+                 customerName: `${orderData.payer?.name?.given_name || ""} ${orderData.payer?.name?.surname || ""}`.trim(),
+                 esimaccessOrderId: paypalOrderId,
+                 esimaccessOrderStatus: "paid",
+                 // Top-up metadata
+                 isTopupMode,
+                 selectedDuration: selectedDuration || null,
+                 basePlanDays,
+                 extraDays: extraDays > 0 ? extraDays : null,
+                 topupPackageCode,
+                 orderItems: {
+                   create: [{
+                     planId,
+                     planName: orderData.purchase_units?.[0]?.description || "eSIM",
+                     packageCode: planId ? (await prisma.plan.findUnique({ where: { id: planId } }))?.packageCode || null : null,
+                     price: amount,
+                     quantity: 1,
+                     extraDays: extraDays > 0 ? extraDays : null,
+                     basePlanDays,
+                     topupPackageCode,
+                   }],
+                 },
+               },
+             });
 
-          const amount = parseFloat(orderData.purchase_units?.[0]?.amount?.value || "0");
-          const order = await prisma.order.create({
-            data: {
-              totalAmount: amount,
-              status: "completed",
-              customerEmail: orderData.payer?.email_address || "",
-              customerName: `${orderData.payer?.name?.given_name || ""} ${orderData.payer?.name?.surname || ""}`.trim(),
-              esimaccessOrderId: paypalOrderId,
-              esimaccessOrderStatus: "paid",
-              // Top-up metadata
-              isTopupMode,
-              selectedDuration: selectedDuration || null,
-              basePlanDays,
-              extraDays: extraDays > 0 ? extraDays : null,
-              topupPackageCode,
-              orderItems: {
-                create: [{
-                  planId,
-                  planName: orderData.purchase_units?.[0]?.description || "eSIM",
-                  packageCode: planId ? (await prisma.plan.findUnique({ where: { id: planId } }))?.packageCode || null : null,
-                  price: amount,
-                  quantity: 1,
-                  extraDays: extraDays > 0 ? extraDays : null,
-                  basePlanDays: basePlanDays,
-                  topupPackageCode,
-                }],
-              },
-            },
-          });
-
-          // Auto-activate (with top-up processing)
-          await activateEsimAndEmail(order.id, planId, 1, isTopupMode, extraDays, topupPkgCode);
-        }
+             // Auto-activate eSIM (idempotent - skips if already activated)
+             await activateEsimAndEmail(order.id, planId, 1, isTopupMode, extraDays, topupPkgCode);
+           } catch (dbErr: any) {
+             // Handle race condition: unique constraint already satisfied by concurrent request
+             if (dbErr.code === 'P2002') {
+               console.log("[PayPal Webhook] Order already created by concurrent request for PayPal order", paypalOrderId);
+               return NextResponse.json({ received: true, alreadyProcessed: true });
+             }
+             throw dbErr;
+           }
+}
       }
     }
 
@@ -416,192 +418,203 @@ export async function PUT(request: Request) {
      // Determine amount from order data
      const amount = parseFloat(verifyData.purchase_units?.[0]?.amount?.value || "0");
 
-     // Handle capture idempotently
-     let captureStatus = verifyData.status; // "COMPLETED" or "APPROVED"
-     
-     if (verifyData.status === "APPROVED") {
-       // Need to capture payment
-       const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
-         method: "POST",
-         headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" },
-       });
-       
-       const captureData = await captureRes.json();
-       
-       if (!captureRes.ok) {
-         // If already captured (422 error), treat as success
-         if (captureRes.status === 422) {
-           console.log("[PayPal Confirm] Duplicate capture (422), order likely already captured");
-           captureStatus = "COMPLETED";
-         } else {
-           return NextResponse.json({ error: captureData.message || "Capture failed" }, { status: 500 });
+// Idempotency key for capture - prevents duplicate captures if request is retried
+      const captureIdempotencyKey = `capture-${orderId}-${Date.now()}`;
+
+      // Handle capture idempotently
+      let captureStatus = verifyData.status; // "COMPLETED" or "APPROVED"
+
+      if (verifyData.status === "APPROVED") {
+        // Need to capture payment
+        const captureRes = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}/capture`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "PayPal-Request-Id": captureIdempotencyKey,
+          },
+        });
+
+        const captureData = await captureRes.json();
+
+        if (!captureRes.ok) {
+          // If already captured (422 error), treat as success
+          if (captureRes.status === 422) {
+            console.log("[PayPal Confirm] Duplicate capture (422), order likely already captured");
+            captureStatus = "COMPLETED";
+          } else {
+            return NextResponse.json({ error: captureData.message || "Capture failed" }, { status: 500 });
+          }
+        } else {
+          captureStatus = captureData.status;
+          // Use captured amount if available
+          const capturedAmount = parseFloat(captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || "0");
+          if (capturedAmount > 0) {
+            // amount remains from verify (should be same)
+          }
+        }
+      }
+
+      // Only proceed if payment is completed
+      if (captureStatus !== "COMPLETED") {
+        return NextResponse.json({ error: "Payment not completed", status: captureStatus }, { status: 400 });
+      }
+
+      // Use verifyData for payer info
+      const plan = await prisma.plan.findUnique({ where: { id: planId || "" } });
+
+     // Get top-up metadata if in top-up mode
+     let extraDays = 0;
+     let topupPkgCode: string | null = topupPackageCode || null;
+     let basePlanDays: number | null = null;
+     let itemPrice = amount;
+
+     if (isTopupMode && plan && selectedDuration) {
+       extraDays = selectedDuration - plan.durationDays;
+       basePlanDays = plan.durationDays;
+
+       if (extraDays > 0) {
+         // Use passed topupPackageCode, or fetch from DB as fallback
+         if (!topupPkgCode) {
+           const topupPkg = await prisma.topupPackage.findFirst({
+             where: { planId: plan.id, isActive: true, isFlexible: true },
+           });
+           topupPkgCode = topupPkg?.packageCode || null;
          }
-       } else {
-         captureStatus = captureData.status;
-         // Use captured amount if available
-         const capturedAmount = parseFloat(captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || "0");
-         if (capturedAmount > 0) {
-           // amount remains from verify (should be same)
+
+         if (topupPkgCode) {
+           // Get package for price calculation - must handle null case
+           const topupPkgInfo = await prisma.topupPackage.findUnique({
+             where: { packageCode: topupPkgCode },
+           });
+           // Recalculate price to match backend calculation
+           const basePrice = plan.retailPriceUsd > 0 ? plan.retailPriceUsd : plan.priceUsd;
+           const topupCost = topupPkgInfo ? (topupPkgInfo.retailPriceUsd > 0 ? topupPkgInfo.retailPriceUsd : topupPkgInfo.priceUsd) : 0;
+           itemPrice = basePrice + (extraDays * topupCost);
          }
        }
      }
 
-     // Only proceed if payment is completed
-     if (captureStatus !== "COMPLETED") {
-       return NextResponse.json({ error: "Payment not completed", status: captureStatus }, { status: 400 });
+     let order: { id: number; orderItems: { id: number }[] };
+
+     // If pendingOrderId is provided, update the existing pending order instead of creating new
+     if (pendingOrderId) {
+       console.log(`[PayPal Confirm] Updating pending order ${pendingOrderId}`);
+       const pendingOrder = await prisma.order.findUnique({
+         where: { id: Number(pendingOrderId) },
+         include: { orderItems: true },
+       });
+
+       if (pendingOrder && pendingOrder.status === "pending") {
+         // Update the pending order to completed with payment info
+         const updatedOrder = await prisma.order.update({
+           where: { id: Number(pendingOrderId) },
+           data: {
+             status: "completed",
+             totalAmount: amount,
+              customerEmail: verifyData.payer?.email_address || pendingOrder.customerEmail,
+              customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim() || pendingOrder.customerName,
+             esimaccessOrderId: orderId,
+             esimaccessOrderStatus: "paid",
+             // Top-up metadata
+             isTopupMode,
+             selectedDuration: selectedDuration || null,
+             basePlanDays,
+             extraDays: extraDays > 0 ? extraDays : null,
+             topupPackageCode,
+             // Update order items if needed (for top-up price recalculation)
+             orderItems: {
+               update: pendingOrder.orderItems.map(item => ({
+                 where: { id: item.id },
+                 data: {
+                   price: itemPrice,
+                   extraDays: extraDays > 0 ? extraDays : null,
+                   basePlanDays,
+                   topupPackageCode,
+                 },
+               })),
+             },
+           },
+           include: { orderItems: true }, // Include orderItems in response
+         });
+         order = updatedOrder;
+       } else {
+         // Pending order not found or already processed, use upsert to avoid duplicates
+         console.log(`[PayPal Confirm] Pending order ${pendingOrderId} not found or not pending, upserting order`);
+         const upsertedOrder = await prisma.order.upsert({
+           where: { esimaccessOrderId: orderId },
+           update: {}, // Already exists, do nothing
+           create: {
+             userId,
+             totalAmount: amount,
+             status: "completed",
+              customerEmail: verifyData.payer?.email_address || "",
+              customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
+             esimaccessOrderId: orderId,
+             esimaccessOrderStatus: "paid",
+             // Top-up metadata
+             isTopupMode,
+             selectedDuration: selectedDuration || null,
+             basePlanDays,
+             extraDays: extraDays > 0 ? extraDays : null,
+             topupPackageCode,
+             orderItems: {
+               create: [{
+                 planId: planId || null,
+                 planName: plan?.name || "eSIM Plan",
+                 packageCode: plan?.packageCode || null,
+                 price: itemPrice,
+                 quantity,
+                 extraDays: extraDays > 0 ? extraDays : null,
+                 basePlanDays,
+                 topupPackageCode,
+               }],
+             },
+           },
+           include: { orderItems: true },
+         });
+         order = upsertedOrder;
+       }
+     } else {
+       // No pendingOrderId: use upsert to prevent duplicates (direct checkout or fallback)
+       console.log("[PayPal Confirm] No pending order ID, upserting order");
+       const upsertedOrder = await prisma.order.upsert({
+         where: { esimaccessOrderId: orderId },
+         update: {}, // Already exists, do nothing
+         create: {
+           userId,
+           totalAmount: amount,
+           status: "completed",
+            customerEmail: verifyData.payer?.email_address || "",
+            customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
+           esimaccessOrderId: orderId,
+           esimaccessOrderStatus: "paid",
+           // Top-up metadata
+           isTopupMode,
+           selectedDuration: selectedDuration || null,
+           basePlanDays,
+           extraDays: extraDays > 0 ? extraDays : null,
+           topupPackageCode,
+           orderItems: {
+             create: [{
+               planId: planId || null,
+               planName: plan?.name || "eSIM Plan",
+               packageCode: plan?.packageCode || null,
+               price: itemPrice,
+               quantity,
+               extraDays: extraDays > 0 ? extraDays : null,
+               basePlanDays,
+               topupPackageCode,
+             }],
+           },
+         },
+         include: { orderItems: true },
+       });
+       order = upsertedOrder;
      }
 
-     // Use verifyData for payer info
-     const plan = await prisma.plan.findUnique({ where: { id: planId || "" } });
-
-    // Get top-up metadata if in top-up mode
-    let extraDays = 0;
-    let topupPkgCode: string | null = topupPackageCode || null;
-    let basePlanDays: number | null = null;
-    let itemPrice = amount;
-    
-    if (isTopupMode && plan && selectedDuration) {
-      extraDays = selectedDuration - plan.durationDays;
-      basePlanDays = plan.durationDays;
-      
-      if (extraDays > 0) {
-        // Use passed topupPackageCode, or fetch from DB as fallback
-        if (!topupPkgCode) {
-          const topupPkg = await prisma.topupPackage.findFirst({
-            where: { planId: plan.id, isActive: true, isFlexible: true },
-          });
-          topupPkgCode = topupPkg?.packageCode || null;
-        }
-        
-        if (topupPkgCode) {
-          // Get package for price calculation - must handle null case
-          const topupPkgInfo = await prisma.topupPackage.findUnique({
-            where: { packageCode: topupPkgCode },
-          });
-          // Recalculate price to match backend calculation
-          const basePrice = plan.retailPriceUsd > 0 ? plan.retailPriceUsd : plan.priceUsd;
-          const topupCost = topupPkgInfo ? (topupPkgInfo.retailPriceUsd > 0 ? topupPkgInfo.retailPriceUsd : topupPkgInfo.priceUsd) : 0;
-          itemPrice = basePrice + (extraDays * topupCost);
-        }
-      }
-    }
-
-    let order: { id: number; orderItems: { id: number }[] };
-
-    // If pendingOrderId is provided, update the existing pending order instead of creating new
-    if (pendingOrderId) {
-      console.log(`[PayPal Confirm] Updating pending order ${pendingOrderId}`);
-      const pendingOrder = await prisma.order.findUnique({
-        where: { id: Number(pendingOrderId) },
-        include: { orderItems: true },
-      });
-
-      if (pendingOrder && pendingOrder.status === "pending") {
-        // Update the pending order to completed with payment info
-        const updatedOrder = await prisma.order.update({
-          where: { id: Number(pendingOrderId) },
-          data: {
-            status: "completed",
-            totalAmount: amount,
-             customerEmail: verifyData.payer?.email_address || pendingOrder.customerEmail,
-             customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim() || pendingOrder.customerName,
-            esimaccessOrderId: orderId,
-            esimaccessOrderStatus: "paid",
-            // Top-up metadata
-            isTopupMode,
-            selectedDuration: selectedDuration || null,
-            basePlanDays,
-            extraDays: extraDays > 0 ? extraDays : null,
-            topupPackageCode,
-            // Update order items if needed (for top-up price recalculation)
-            orderItems: {
-              update: pendingOrder.orderItems.map(item => ({
-                where: { id: item.id },
-                data: {
-                  price: itemPrice,
-                  extraDays: extraDays > 0 ? extraDays : null,
-                  basePlanDays,
-                  topupPackageCode,
-                },
-              })),
-            },
-          },
-          include: { orderItems: true }, // Include orderItems in response
-        });
-        order = updatedOrder;
-      } else {
-        // Pending order not found or already processed, create new as fallback
-        console.log(`[PayPal Confirm] Pending order ${pendingOrderId} not found or not pending, creating new order`);
-        const newOrder = await prisma.order.create({
-          data: {
-            userId,
-            totalAmount: amount,
-            status: "completed",
-             customerEmail: verifyData.payer?.email_address || "",
-             customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
-            esimaccessOrderId: orderId,
-            esimaccessOrderStatus: "paid",
-            // Top-up metadata
-            isTopupMode,
-            selectedDuration: selectedDuration || null,
-            basePlanDays,
-            extraDays: extraDays > 0 ? extraDays : null,
-            topupPackageCode,
-            orderItems: {
-              create: [{
-                planId: planId || null,
-                planName: plan?.name || "eSIM Plan",
-                packageCode: plan?.packageCode || null,
-                price: itemPrice,
-                quantity,
-                extraDays: extraDays > 0 ? extraDays : null,
-                basePlanDays,
-                topupPackageCode,
-              }],
-            },
-          },
-          include: { orderItems: true },
-        });
-        order = newOrder;
-      }
-    } else {
-      // No pendingOrderId: create new order (direct checkout or fallback)
-      console.log("[PayPal Confirm] No pending order ID, creating new order");
-      const newOrder = await prisma.order.create({
-        data: {
-          userId,
-          totalAmount: amount,
-          status: "completed",
-           customerEmail: verifyData.payer?.email_address || "",
-           customerName: `${verifyData.payer?.name?.given_name || ""} ${verifyData.payer?.name?.surname || ""}`.trim(),
-          esimaccessOrderId: orderId,
-          esimaccessOrderStatus: "paid",
-          // Top-up metadata
-          isTopupMode,
-          selectedDuration: selectedDuration || null,
-          basePlanDays,
-          extraDays: extraDays > 0 ? extraDays : null,
-          topupPackageCode,
-          orderItems: {
-            create: [{
-              planId: planId || null,
-              planName: plan?.name || "eSIM Plan",
-              packageCode: plan?.packageCode || null,
-              price: itemPrice,
-              quantity,
-              extraDays: extraDays > 0 ? extraDays : null,
-              basePlanDays,
-              topupPackageCode,
-            }],
-          },
-        },
-        include: { orderItems: true },
-      });
-      order = newOrder;
-    }
-
-    // Auto-activate eSIM + send email (with top-up processing)
-    await activateEsimAndEmail(order.id, planId, quantity, isTopupMode, extraDays, topupPkgCode);
+     // Auto-activate eSIM + send email (with top-up processing)
+     await activateEsimAndEmail(order.id, planId, quantity, isTopupMode, extraDays, topupPkgCode);
 
     const updatedOrder = await prisma.order.findUnique({
       where: { id: order.id },
