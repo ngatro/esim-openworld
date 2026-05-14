@@ -8,7 +8,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { useI18n } from "@/components/providers/I18nProvider";
 
 export default function ResetPasswordModal() {
-  const { isResetPasswordOpen, resetPasswordToken, closeResetPassword, openLogin, openResetPassword } = useUI();
+  const { isResetPasswordOpen, resetToken, closeResetPassword, openLogin, openResetPassword } = useUI();
   const { refreshUser } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,12 +24,12 @@ export default function ResetPasswordModal() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     const token = searchParams.get("token");
-    if (token && !resetPasswordToken) {
+    if (token && !resetToken) {
       openResetPassword(token);
     }
-  }, [searchParams, resetPasswordToken, openResetPassword]);
+  }, [searchParams, resetToken, openResetPassword]);
 
   useEffect(() => {
     if (isResetPasswordOpen) {
@@ -61,7 +61,7 @@ export default function ResetPasswordModal() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetPasswordToken, password, lang }),
+        body: JSON.stringify({ token: resetToken, password, lang }),
       });
       const data = await res.json();
 
@@ -159,12 +159,12 @@ export default function ResetPasswordModal() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800">
-                  {resetPasswordToken ? `${t("resetPasswordModal.title1")}` : `${t("resetPasswordModal.title2")}`}
+                  {resetToken ? `${t("resetPasswordModal.title1")}` : `${t("resetPasswordModal.title2")}`}
                 </h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  {resetPasswordToken 
-                    ? `${t("resetPasswordModal.desc1")}` 
-                    : `${t("resetPasswordModal.desc2")}`}
+{resetToken
+                     ? `${t("resetPasswordModal.desc1")}`
+                     : `${t("resetPasswordModal.desc2")}`}
                 </p>
               </div>
             </motion.div>
@@ -181,9 +181,9 @@ export default function ResetPasswordModal() {
                   </svg>
                 </div>
                 <p className="text-slate-600 mb-4">
-                  {resetPasswordToken 
-                    ? `${t("resetPasswordModal.success1")}` 
-                    : `${t("resetPasswordModal.success2")}`}
+{resetToken
+                     ? `${t("resetPasswordModal.success1")}`
+                     : `${t("resetPasswordModal.success2")}`}
                 </p>
                 <button
                   onClick={openLogin}
@@ -193,7 +193,7 @@ export default function ResetPasswordModal() {
                 </button>
               </motion.div>
             ) : (
-              <form onSubmit={resetPasswordToken ? handleSubmit : handleForgotPassword}>
+              <form onSubmit={resetToken ? handleSubmit : handleForgotPassword}>
                 <AnimatePresence mode="wait">
                   {error && (
                     <motion.div
@@ -213,7 +213,7 @@ export default function ResetPasswordModal() {
                 </AnimatePresence>
 
                 <div className="space-y-4">
-                  {resetPasswordToken ? (
+                  {resetToken ? (
                     <>
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -316,11 +316,11 @@ export default function ResetPasswordModal() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <span>{resetPasswordToken ? `${t("resetPasswordModal.loading1")}` : `${t("resetPasswordModal.loading2")}`}</span>
+                      <span>{resetToken ? `${t("resetPasswordModal.loading1")}` : `${t("resetPasswordModal.loading2")}`}</span>
                     </div>
                   ) : (
                     <span className="flex items-center justify-center gap-2">
-                      {resetPasswordToken ? `${t("resetPasswordModal.button1")}` : `${t("resetPasswordModal.button2")}`}
+                      {resetToken ? `${t("resetPasswordModal.button1")}` : `${t("resetPasswordModal.button2")}`}
                       <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>

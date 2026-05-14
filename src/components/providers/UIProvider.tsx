@@ -7,7 +7,7 @@ interface UIContextType {
   isRegisterOpen: boolean;
   isCartOpen: boolean;
   isResetPasswordOpen: boolean;
-  resetPasswordToken: string | null;
+  resetToken: string | null;
   openLogin: () => void;
   closeLogin: () => void;
   openRegister: () => void;
@@ -27,7 +27,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
-  const [resetPasswordToken, setResetPasswordToken] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const openLogin = useCallback(() => {
     setIsLoginOpen(true);
@@ -60,8 +60,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
     setIsLoginOpen(true);
   }, []);
 
-  const openResetPassword = useCallback((token?: string) => {
-    setResetPasswordToken(token || null);
+const openResetPassword = useCallback((token?: string) => {
+    setResetToken(token || null);
     setIsResetPasswordOpen(true);
     setIsLoginOpen(false);
     setIsRegisterOpen(false);
@@ -70,7 +70,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
   const closeResetPassword = useCallback(() => {
     setIsResetPasswordOpen(false);
-    setResetPasswordToken(null);
+    setResetToken(null);
   }, []);
 
   const closeAll = useCallback(() => {
@@ -78,7 +78,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     setIsRegisterOpen(false);
     setIsCartOpen(false);
     setIsResetPasswordOpen(false);
-    setResetPasswordToken(null);
+    setResetToken(null);
   }, []);
 
   return (
@@ -87,7 +87,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
       isRegisterOpen,
       isCartOpen,
       isResetPasswordOpen,
-      resetPasswordToken,
+      resetToken,
       openLogin,
       closeLogin,
       openRegister,
