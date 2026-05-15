@@ -361,14 +361,22 @@ if (paypalOrderId) {
 
              // Auto-activate eSIM (idempotent - skips if already activated)
              await activateEsimAndEmail(order.id, planId, 1, isTopupMode, extraDays, topupPkgCode);
-           } catch (dbErr: any) {
-             // Handle race condition: unique constraint already satisfied by concurrent request
-             if (dbErr.code === 'P2002') {
-               console.log("[PayPal Webhook] Order already created by concurrent request for PayPal order", paypalOrderId);
-               return NextResponse.json({ received: true, alreadyProcessed: true });
-             }
-             throw dbErr;
-           }
+            } catch (dbErr: any) {
+              // Handle race condition: unique constraint already satisfied by concurrent request
+              if (dbErr.code === 'P2002') {
+                console.log("[PayPal Webhook] Order already created by concurrent request for PayPal order", paypalOrderId);
+                // The order already exists - activate it now (idempotent - skips if already activated)
+                const existingOrder = await prisma.order.findFirst({
+                  where: { esimaccessOrderId: paypalOrderId },
+                  include: { orderItems: true },
+                });
+                if (existingOrder) {
+                  await activateEsimAndEmail(existingOrder.id, planId, 1, isTopupMode, extraDays, topupPkgCode);
+                }
+                return NextResponse.json({ received: true, alreadyProcessed: true });
+              }
+              throw dbErr;
+            }
 }
       }
     }
