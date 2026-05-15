@@ -199,15 +199,15 @@ export default function CheckoutPage() {
         .then((r) => r.json())
         .then((data) => {
           if (data.success && data.order) {
-            // Clean up URL to prevent duplicate processing on refresh
-            router.replace(`/${locale}/checkout?planId=${planId}`, { scroll: false });
-            
             const item = data.order.orderItems?.[0];
             if (data.alreadyProcessed) {
               // Order already processed, redirect to orders
               router.replace(`/${locale}/orders`);
               return;
             }
+            // Clean up URL to prevent duplicate processing on refresh
+            router.replace(`/${locale}/checkout?planId=${planId}`, { scroll: false });
+            
             setSuccess({
               orderId: data.order.id,
               qrCode: item?.esimQrCode || item?.esimQrImage || data.esim?.qrcodeUrl,
