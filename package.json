@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",
+    "@paypal/checkout-server-sdk": "^1.0.3",
     "@prisma/adapter-better-sqlite3": "^7.5.0",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/adapter-pg": "^7.8.0",
@@ -44,6 +45,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^24.10.2",
+    "@types/paypal__checkout-server-sdk": "^1.0.8",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

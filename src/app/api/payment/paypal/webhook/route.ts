@@ -288,7 +288,7 @@ if (paypalOrderId) {
          });
          const orderData = await verifyRes.json();
 
-         if (orderData.status === "COMPLETED") {
+         if (orderData.status === "COMPLETED" || orderData.status === "APPROVED") {
             // Create order using upsert to prevent duplicates from concurrent webhook + frontend requests
             const customId = orderData.purchase_units?.[0]?.custom_id;
            let planId = "";

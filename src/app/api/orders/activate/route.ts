@@ -77,8 +77,8 @@ export async function POST(
   { params }: { params: Promise<{}> }
 ) {
   try {
-    const { orderId } = await request.json().catch(() => ({}));
-    const { force = false } = await request.json().catch(() => ({ force: false }));
+    const body = await request.json().catch(() => ({}));
+    const { orderId, force = false } = body;
 
     const orderIdNum = parseInt(orderId);
     if (isNaN(orderIdNum)) {

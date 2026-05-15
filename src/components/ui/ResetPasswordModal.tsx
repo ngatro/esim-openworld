@@ -25,7 +25,7 @@ export default function ResetPasswordModal() {
   }, []);
 
 useEffect(() => {
-    const token = searchParams.get("token");
+    const token = searchParams.get("ResetPasswordToken");
     if (token && !resetToken) {
       openResetPassword(token);
     }
