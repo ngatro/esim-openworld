@@ -345,12 +345,18 @@ export async function createTopUp(params: {
 
   const body: Record<string, unknown> = {
     transactionId,
-    iccid: "",
     packageCode: params.packageCode,
   };
 
-  if (params.esimTranNo) {
-    body.esimTranNo = params.esimTranNo;
+  // Only one of iccid / esimTranNo should be present.
+  // Empty string ("") is treated as absent — the partner API rejects it.
+  const iccidVal = (params.iccid || "").trim();
+  const tranNoVal = (params.esimTranNo || "").trim();
+
+  if (iccidVal) {
+    body.iccid = iccidVal;
+  } else if (tranNoVal) {
+    body.esimTranNo = tranNoVal;
   }
 
   if (params.periodNum) {
