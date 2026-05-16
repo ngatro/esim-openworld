@@ -9,11 +9,13 @@ import { createCommission } from "./affiliate";
  * Flow:
  *  1. `updateMany` acquires PROCESSING lock on orderItems (atomic lock).
  *  2. Double-check idempotency via `esimIccid` (skip if already activated).
- *  3. Call the eSIM partner API using `OW-<dbOrderId>` — fixed per retry as idempotency key.
- *  4. Persist the returned ICCID / QR / activation data back to the DB.
- *  5. Optionally run the top-up if `extraDays > 0` and `topupPackageCode` exist.
- *  6. Send confirmation email(s).
- *  7. Create affiliate commission for the referrer.
+ *  3. Resolve plan + packageCode from DB.
+ *  4. Call the eSIM partner API using `OW-<dbOrderId>` — fixed per retry as idempotency key.
+ *  5. Persist the returned ICCID / QR / activation data back to the DB.
+ *  6. Optionally run the top-up if `extraDays > 0` and `topupPackageCode` exist.
+ *  7. Update order status.
+ *  8. Send confirmation email(s).
+ *  9. Create affiliate commission for the referrer.
  *
  * On ANY error after the lock is acquired, `smdpStatus` is reset to `null` so the next
  * call can retry — prevents the order from being permanently stuck at PROCESSING.
@@ -37,8 +39,8 @@ export async function activateEsimAndEmailCentralized(params: {
   } = params;
 
   // ── 1. Atomic Lock ────────────────────────────────────────────────────────────
-  // Only one call can win the lock per order — updateMany is a single atomic SQL
-  // statement, so concurrent webhooks / activate-route calls cannot both succeed.
+  // updateMany is a single atomic SQL statement, so concurrent webhooks /
+  // activate-route calls cannot both succeed.
   const lockResult = await prisma.orderItem.updateMany({
     where: {
       orderId: dbOrderId,
@@ -49,26 +51,7 @@ export async function activateEsimAndEmailCentralized(params: {
   });
 
   if (lockResult.count === 0) {
-    console.log(`[AUTO] Order ${dbOrderId}: lock not acquired (all items PENDING/PROCESSING), resetting retry-safe`);
-    // Reset safe: force-reset PROCESSING and PENDING/UNSET back to null
-    // so a retry attempt can win the lock on the next call.
-    // This is guaranteed-safe: a genuine concurrent call that just acquired the
-    // lock WILL NOT have esimIccid set yet (it hasn't called the API), but it has
-    // the db-level PROCESSING flag AND an in-progress eSIM Access API call in
-    // memory — that call cannot be pre-empted, so the next retry will:
-    //   1. Acquire the lock (other call now uses PROCESSING)
-    //   2. Find esimIccid ALREADY SET (other call succeeded between our reset
-    //      and our lock-acquire) → short-circuit and return immediately.
-    await prisma.orderItem.updateMany({
-      where: {
-        orderId: dbOrderId,
-        esimIccid: null,
-        smdpStatus: { in: ["PROCESSING"] },
-      },
-      data: { smdpStatus: null },
-    });
-    console.log(`[AUTO] Order ${dbOrderId}: PROCESSING reset done — retrying lock on next call`);
-    return;
+    console.log(`[AUTO] Order ${dbOrderId}: lock not acquired — concurrent call may be in-flight, continuing to idempotency check`);
   }
 
   // ── 2. Double-Check Idempotency ───────────────────────────────────────────────
@@ -89,7 +72,7 @@ export async function activateEsimAndEmailCentralized(params: {
   const packageCode = plan?.packageCode;
 
   if (!packageCode) {
-    console.error(`[AUTO] Order ${dbOrderId}: No packageCode found; resetting lock`);
+    console.error(`[AUTO] Order ${dbOrderId}: No packageCode found for planId=${planId}; resetting lock`);
     _unwindLock(dbOrderId, lockedOrderItemId);
     return;
   }
@@ -107,7 +90,7 @@ export async function activateEsimAndEmailCentralized(params: {
   const transactionId = `OW-${dbOrderIdStr}`;
 
   try {
-    console.log(`[AUTO] Order ${dbOrderId}: calling eSIM Access, packageCode=${packageCode}, transactionId=${transactionId}`);
+    console.log(`[AUTO] Order ${dbOrderId}: calling eSIM Access, packageCode=${packageCode}, quantity=${quantity}, transactionId=${transactionId}`);
     const esimOrder = await createOrder({
       packageCode,
       count: quantity,
@@ -119,7 +102,7 @@ export async function activateEsimAndEmailCentralized(params: {
     // ── 5. Persist eSIM data back to DB ─────────────────────────────────────────
     await prisma.orderItem.update({
       where: { id: lockedOrderItemId! },
-      data: {
+       data: {
         esimIccid: esimOrder.iccid || null,
         esimEid: esimOrder.eid || null,
         esimTranNo: esimOrder.esimTranNo || esimOrder.tranNo || transactionId,
@@ -134,6 +117,7 @@ export async function activateEsimAndEmailCentralized(params: {
         expiredAt: esimOrder.expiredTime ? new Date(esimOrder.expiredTime) : null,
       },
     });
+    console.log(`[AUTO] Order ${dbOrderId}: saved to DB — iccid=${esimOrder.iccid}`);
 
     // ── 6. Top-up ───────────────────────────────────────────────────────────────
     let topupStatus = "not_needed";
@@ -165,6 +149,7 @@ export async function activateEsimAndEmailCentralized(params: {
         topupPackageCode: topupStatus !== "not_needed" ? itemTopupPackageCode : null,
       },
     });
+    console.log(`[AUTO] Order ${dbOrderId}: order status set to esimaccessOrderStatus=${_resolveOrderStatus(topupStatus)}`);
 
     // ── 8. Emails & commission (fire-and-forget — do not rethrow on email error) ─
     await _sendActivationEmails(dbOrderId, esimOrder.orderNo, topupStatus);
@@ -172,7 +157,6 @@ export async function activateEsimAndEmailCentralized(params: {
 
     console.log(`[AUTO] Order ${dbOrderId}: Activation complete${topupStatus !== "not_needed" ? `, top-up: ${topupStatus}` : ""}`);
   } catch (activationError) {
-    // ── Error recovery: reset smdpStatus → null so the order can be retried ──────
     console.error(`[AUTO] Order ${dbOrderId}: Activation FAILED — rolling back lock:`, activationError);
     _unwindLock(dbOrderId, lockedOrderItemId);
     _alertAdminFailed(dbOrderId, activationError);
@@ -201,9 +185,7 @@ function _unwindLock(
 /**
  * Resolve order status after activation.
  *  - topup failed          → "partial"
- *  - eSIM API errored      → "error"
- *  - smdp status enabled   → "ENABLED"
- *  - default               → "ACTIVATED"
+ *  - default               → "ENABLED"
  */
 function _resolveOrderStatus(topupStatus: string): string {
   if (topupStatus === "failed") return "partial";
@@ -231,7 +213,6 @@ async function _sendActivationEmails(
 
   // ── Customer email ────────────────────────────────────────────────────────────
   try {
-    const { sendEmail, getOrderConfirmationHtml } = await import("./email");
     await sendEmail({
       to: order.customerEmail,
       subject: `OW SIM Order #${order.id}${summary} — Your eSIM is ready!${topupNote}`,
@@ -257,8 +238,7 @@ async function _sendActivationEmails(
   try {
     const adminEmail = process.env.ADMIN_EMAIL;
     if (adminEmail) {
-      const { sendEmail: sendAdminEmail, getOrderConfirmationAdminHtml } = await import("./email");
-      await sendAdminEmail({
+      await sendEmail({
         to: adminEmail,
         subject: `New Order #${order.id}${summary} — ${order.totalAmount.toFixed(2)} USD${topupNote}`,
         html: getOrderConfirmationAdminHtml({
@@ -286,7 +266,6 @@ async function _alertAdminTopupFailed(
   try {
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminEmail) return;
-    const { sendEmail } = await import("./email");
     await sendEmail({
       to: adminEmail,
       subject: `[URGENT] Top-up Failed — Order #${orderId}`,
@@ -310,7 +289,6 @@ async function _alertAdminFailed(orderId: number, error: unknown): Promise<void>
   try {
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminEmail) return;
-    const { sendEmail } = await import("./email");
     await sendEmail({
       to: adminEmail,
       subject: `[ALERT] eSIM Activation Failed — Order #${orderId}`,
@@ -324,19 +302,19 @@ async function _alertAdminFailed(orderId: number, error: unknown): Promise<void>
 
 /** Create affiliate commission for the referrer, if any. */
 async function _createReferrerCommission(orderId: number): Promise<void> {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: { id: true, userId: true, totalAmount: true },
-  });
-  if (!order?.userId) return;
-
-  const user = await prisma.user.findUnique({
-    where: { id: order.userId },
-    select: { referredById: true },
-  });
-  if (!user?.referredById) return;
-
   try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, userId: true, totalAmount: true },
+    });
+    if (!order?.userId) return;
+
+    const user = await prisma.user.findUnique({
+      where: { id: order.userId },
+      select: { referredById: true },
+    });
+    if (!user?.referredById) return;
+
     await createCommission(
       user.referredById,
       order.userId,
