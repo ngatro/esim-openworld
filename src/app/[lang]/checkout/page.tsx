@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -65,9 +65,11 @@ export default function CheckoutPage() {
    const [success, setSuccess] = useState<{ orderId: number; qrCode?: string; activationCode?: string } | null>(null);
    const [paypalConfigured, setPaypalConfigured] = useState<boolean | null>(null);
    // Track if PayPal return has been processed to avoid duplicate activation
-   const [paymentHandled, setPaymentHandled] = useState(false);
+    const [paymentHandled, setPaymentHandled] = useState(false);
+    // Polling state: tracks orderId being monitored while eSIM activates
+    const [pollingOrderId, setPollingOrderId] = useState<number | null>(null);
 
-  // Check PayPal configuration
+   // Check PayPal configuration
   useEffect(() => {
     fetch("/api/payment/paypal?check=config")
       .then(r => r.json())
@@ -200,26 +202,32 @@ export default function CheckoutPage() {
         .then((data) => {
           if (data.success && data.order) {
             const item = data.order.orderItems?.[0];
-            if (data.alreadyProcessed) {
-              // Order already processed, redirect to orders
-              router.replace(`/${locale}/orders`);
-              return;
-            }
-            // Clean up URL to prevent duplicate processing on refresh
-            router.replace(`/${locale}/checkout?planId=${planId}`, { scroll: false });
-            
-            setSuccess({
-              orderId: data.order.id,
-              qrCode: item?.esimQrCode || item?.esimQrImage || data.esim?.qrcodeUrl,
-              activationCode: item?.activationCode || data.esim?.activationCode,
-            });
-            // Clean up localStorage
-            localStorage.removeItem("paypal_planId");
-            localStorage.removeItem("paypal_qty");
-            localStorage.removeItem("paypal_topupMode");
-            localStorage.removeItem("paypal_topupDays");
-            localStorage.removeItem("paypal_topupPackageCode");
-            localStorage.removeItem("pending_order_id");
+             if (data.alreadyProcessed) {
+               // Order already processed, redirect to orders
+               router.replace(`/${locale}/orders`);
+               return;
+             }
+             // Clean up URL to prevent duplicate processing on refresh
+             router.replace(`/${locale}/checkout?planId=${planId}`, { scroll: false });
+             
+             localStorage.removeItem("paypal_planId");
+             localStorage.removeItem("paypal_qty");
+             localStorage.removeItem("paypal_topupMode");
+             localStorage.removeItem("paypal_topupDays");
+             localStorage.removeItem("paypal_topupPackageCode");
+             localStorage.removeItem("pending_order_id");
+
+             // If eSIM data is ready, show success immediately; otherwise poll
+             const orderItem = data.order.orderItems?.[0];
+             if (orderItem?.esimIccid) {
+               setSuccess({
+                 orderId: data.order.id,
+                 qrCode: orderItem.esimQrCode || orderItem.esimQrImage,
+                 activationCode: orderItem.activationCode,
+               });
+             } else {
+               setPollingOrderId(data.order.id);
+             }
           } else {
             setError(data.error || "Payment confirmation failed");
             setPaymentHandled(false); // Allow retry
@@ -229,6 +237,69 @@ export default function CheckoutPage() {
         .finally(() => setProcessing(false));
     }
   }, [searchParams, planId]);
+
+  /* ── Poll for eSIM activation (direct checkout + PayPal) ───────────────────
+   * When `pollingOrderId` is set, fetch the order by email every 3 s.
+   * As soon as an `orderItem` has `esimIccid`, call `setSuccess` and stop polling.
+   * Times out after <SECRET_ebe517e4> to avoid infinite polling.
+   */
+  useEffect(() => {
+    if (!pollingOrderId || !customerEmail) return;
+
+    const POLL_INTERVAL_MS = 3_000;
+    const MAX_ATTEMPTS = 120;   // ~6 minutes
+    let attempts = 0;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/orders?email=${encodeURIComponent(customerEmail)}`,
+          { cache: "no-store" },
+        );
+        if (res.ok) {
+          const { orders } = (await res.json()) as {
+            orders: Array<Record<string, unknown>>;
+          };
+          const matching = (orders as Array<Record<string, unknown>>).find(
+            (o: Record<string, unknown>) => o.id === pollingOrderId,
+          );
+          const orderItem = (matching as Record<string, unknown> | undefined)
+            ?.orderItems as Array<Record<string, unknown>> | undefined;
+          const item = orderItem?.find(
+            (i: Record<string, unknown>) =>
+              (i.esimIccid as string | null) !== null &&
+              (i.esimIccid as string | null) !== undefined,
+          );
+          if (item?.esimIccid) {
+            setPollingOrderId(null);
+            setSuccess({
+              orderId: pollingOrderId,
+              qrCode: (item.esimQrImage as string | null) || (item.esimQrCode as string | null) || undefined,
+              activationCode: (item.activationCode as string | null) || undefined,
+            });
+            return;
+          }
+        }
+      } catch {
+        /* swallow — retry on next tick */
+      }
+
+      attempts++;
+      if (attempts < MAX_ATTEMPTS) {
+        timerId = setTimeout(poll, POLL_INTERVAL_MS);
+      } else {
+        setPollingOrderId(null);
+        // Intentionally silent: order shows in /orders page with manual activation option
+      }
+    };
+
+    poll();
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [pollingOrderId, customerEmail]);
 
   useEffect(() => {
    if (planId) {
@@ -413,6 +484,60 @@ export default function CheckoutPage() {
     throw new Error("No approval URL");
   }
   
+  /* ── eSIM activation poller ─────────────────────────────────────────────────
+   * Called by both `handleDirectCheckout` and the PayPal success useEffect.
+   * Polls the order every 3 s until eSIM data (ICCID/QR) appears, then
+   * surfaces the result to the caller via `onEsimReady`.
+   *
+   * On success  → calls onEsimReady(orderId, item)
+   * On timeout  → calls onEsimReady(null)
+   * On API error → silently retries on next tick.
+   */
+   function pollForEsimActivation(
+     orderId: number,
+     onEsimReady: (orderId: number, item: Record<string, unknown>) => void,
+     maxAttempts = 60,          // ≈ 3 min at 3 s/tick
+   ) {
+     let attempts = 0;
+     const poll = async () => {
+       try {
+         const res = await fetch(`/api/orders?email=${encodeURIComponent(customerEmail)}`, { cache: "no-store" });
+          if (res.ok) {
+            const { orders } = (await res.json()) as {
+              orders: Array<Record<string, unknown>>;
+            };
+            const matching = (orders as Array<Record<string, unknown>>).find(
+              (o: Record<string, unknown>) => o.id === orderId,
+            );
+            const orderItems = (matching as Record<string, unknown> | undefined)
+              ?.orderItems as Array<Record<string, unknown>> | undefined;
+            const item = orderItems?.find(
+              (i: Record<string, unknown>) => i.esimIccid != null,
+            );
+
+            if (item?.esimIccid) {
+             setPollingOrderId(null);
+             onEsimReady(orderId, item);
+             return;
+           }
+         }
+       } catch {
+         // Retry silently on API error
+       }
+
+       attempts++;
+       if (attempts < maxAttempts) {
+         setTimeout(poll, 3000);   // 3 s between polls
+       } else {
+         console.error("[Checkout] eSIM activation timed out — order", orderId);
+         setPollingOrderId(null);
+          onEsimReady(orderId, {} as Record<string, unknown>);
+
+       }
+     };
+     poll();
+   }
+
    async function handleDirectCheckout() {
      if (!plan) return;
      if (!customerEmail) {
@@ -424,7 +549,7 @@ export default function CheckoutPage() {
      setError("");
 
      try {
-       // Step 1: Create pending order
+       // Step 1: Mark order as paid (eSIM is activated automatically by webhook POST handler)
        const actualDuration = topupMode && topupDays > 0 ? topupDays : (plan?.durationDays || 0);
        const res = await fetch("/api/orders", {
          method: "POST",
@@ -441,6 +566,7 @@ export default function CheckoutPage() {
            customerEmail,
            isTopupMode: topupMode,
            selectedDuration: actualDuration,
+           status: "completed",
          }),
        });
 
@@ -456,26 +582,8 @@ export default function CheckoutPage() {
          return;
        }
 
-       // Step 2: Activate eSIM immediately (direct checkout = paid in full)
-       const activateRes = await fetch(`/api/orders/${orderId}/activate`, {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ force: true }),
-       });
-
-       const activateData = await activateRes.json();
-       if (!activateRes.ok) {
-         console.error("[Direct Checkout] Activation failed:", activateData);
-         setError(activateData.error || "Failed to activate eSIM");
-         return;
-       }
-
-       const orderItem = activateData.order?.orderItems?.[0];
-       setSuccess({
-         orderId: activateData.order.id,
-         qrCode: orderItem?.esimQrCode || orderItem?.esimQrImage,
-         activationCode: orderItem?.activationCode,
-       });
+       // Step 2: Start polling — the webhook POST handler will activate the eSIM
+       setPollingOrderId(orderId);
      } catch {
        setError("Something went wrong. Please try again.");
      } finally {
@@ -524,15 +632,17 @@ export default function CheckoutPage() {
       </div>
     );
   }
-  if (processing && !success) {
+  if ((processing && !success) || pollingOrderId) {
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col items-center justify-center text-slate-800 ">
       <div className="animate-spin w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full mb-4" />
-      <p className="text-lg font-semibold">Processing your payment...</p>
+      <p className="text-lg font-semibold">
+        {pollingOrderId ? "Activating your eSIM…" : "Processing your payment…"}
+      </p>
       <p className="text-sm text-slate-400 mt-2">Please wait, do not close this page</p>
     </div>
   );
-}
+ }
 
   if (success) {
     return (
