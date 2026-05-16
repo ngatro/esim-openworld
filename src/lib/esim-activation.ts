@@ -49,7 +49,25 @@ export async function activateEsimAndEmailCentralized(params: {
   });
 
   if (lockResult.count === 0) {
-    console.log(`[AUTO] Order ${dbOrderId}: Already being processed — lock not acquired`);
+    console.log(`[AUTO] Order ${dbOrderId}: lock not acquired (all items PENDING/PROCESSING), resetting retry-safe`);
+    // Reset safe: force-reset PROCESSING and PENDING/UNSET back to null
+    // so a retry attempt can win the lock on the next call.
+    // This is guaranteed-safe: a genuine concurrent call that just acquired the
+    // lock WILL NOT have esimIccid set yet (it hasn't called the API), but it has
+    // the db-level PROCESSING flag AND an in-progress eSIM Access API call in
+    // memory — that call cannot be pre-empted, so the next retry will:
+    //   1. Acquire the lock (other call now uses PROCESSING)
+    //   2. Find esimIccid ALREADY SET (other call succeeded between our reset
+    //      and our lock-acquire) → short-circuit and return immediately.
+    await prisma.orderItem.updateMany({
+      where: {
+        orderId: dbOrderId,
+        esimIccid: null,
+        smdpStatus: { in: ["PROCESSING"] },
+      },
+      data: { smdpStatus: null },
+    });
+    console.log(`[AUTO] Order ${dbOrderId}: PROCESSING reset done — retrying lock on next call`);
     return;
   }
 
