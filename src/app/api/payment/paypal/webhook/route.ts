@@ -494,6 +494,64 @@ export async function PUT(request: Request) {
             pendingOrderId +
             " not found or not pending, upserting",
         );
+        // Concurrent POST webhook may have already created the order for this
+        // esimaccessOrderId; catch P2002 and fall back to a read.
+        try {
+          const upsertedOrder = await prisma.order.upsert({
+            where: { esimaccessOrderId: orderId },
+            update: {},
+            create: {
+              totalAmount: amount,
+              status: "completed",
+              customerEmail: verifyData.payer?.email_address || customerEmailFromCustomId || "",
+              customerName:
+                `${verifyData.payer?.name?.given_name || ""} ${
+                  verifyData.payer?.name?.surname || ""
+                }`.trim(),
+              esimaccessOrderId: orderId,
+              esimaccessOrderStatus: "paid",
+              isTopupMode,
+              selectedDuration: selectedDuration || null,
+              basePlanDays,
+              extraDays: extraDays > 0 ? extraDays : null,
+              topupPackageCode,
+              orderItems: {
+                create: [
+                  {
+                    planId,
+                    planName: verifyData.purchase_units?.[0]?.description || "eSIM",
+                    packageCode: plan?.packageCode || null,
+                    price: amount,
+                    quantity: 1,
+                    extraDays: extraDays > 0 ? extraDays : null,
+                    basePlanDays,
+                    topupPackageCode,
+                  },
+                ],
+              },
+            },
+            include: { orderItems: true },
+          });
+          order = upsertedOrder;
+        } catch (e: any) {
+          if (e.code === "P2002") {
+            const existing = await prisma.order.findFirst({
+              where: { esimaccessOrderId: orderId },
+              include: { orderItems: true },
+            });
+            if (existing) {
+              console.log("[PayPal Confirm] P2002 recovery: order already existed, returning " + existing.id);
+              order = existing;
+            } else {
+              throw e;
+            }
+          } else {
+            throw e;
+          }
+        }
+      }
+    } else {
+      try {
         const upsertedOrder = await prisma.order.upsert({
           where: { esimaccessOrderId: orderId },
           update: {},
@@ -530,44 +588,23 @@ export async function PUT(request: Request) {
           include: { orderItems: true },
         });
         order = upsertedOrder;
+      } catch (e: any) {
+        // POST webhook may have already created the order for this esimaccessOrderId
+        if (e?.code === "P2002") {
+          const existing = await prisma.order.findFirst({
+            where: { esimaccessOrderId: orderId },
+            include: { orderItems: true },
+          });
+          if (existing) {
+            console.log("[PayPal Confirm] P2002 recovery: order already existed, returning " + existing.id);
+            order = existing;
+          } else {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
       }
-    } else {
-      const upsertedOrder = await prisma.order.upsert({
-        where: { esimaccessOrderId: orderId },
-        update: {},
-        create: {
-          totalAmount: amount,
-          status: "completed",
-            customerEmail: verifyData.payer?.email_address || customerEmailFromCustomId || "",
-          customerName:
-            `${verifyData.payer?.name?.given_name || ""} ${
-              verifyData.payer?.name?.surname || ""
-            }`.trim(),
-          esimaccessOrderId: orderId,
-          esimaccessOrderStatus: "paid",
-          isTopupMode,
-          selectedDuration: selectedDuration || null,
-          basePlanDays,
-          extraDays: extraDays > 0 ? extraDays : null,
-          topupPackageCode,
-          orderItems: {
-            create: [
-              {
-                planId,
-                planName: verifyData.purchase_units?.[0]?.description || "eSIM",
-                packageCode: plan?.packageCode || null,
-                price: amount,
-                quantity: 1,
-                extraDays: extraDays > 0 ? extraDays : null,
-                basePlanDays,
-                topupPackageCode,
-              },
-            ],
-          },
-        },
-        include: { orderItems: true },
-      });
-      order = upsertedOrder;
     }
 
     const updatedOrder = await prisma.order.findUnique({
