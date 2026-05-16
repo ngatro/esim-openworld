@@ -345,12 +345,9 @@ export async function createTopUp(params: {
 
   const body: Record<string, unknown> = {
     transactionId,
+    iccid: "",
     packageCode: params.packageCode,
   };
-
-  if (params.iccid) {
-    body.iccid = params.iccid;
-  }
 
   if (params.esimTranNo) {
     body.esimTranNo = params.esimTranNo;
