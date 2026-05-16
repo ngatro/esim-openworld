@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { activateEsimAndEmailCentralized } from "@/lib/esim-activation";
+import { activateEsimAndEmailCentralized, _alertAdminFailed } from "@/lib/esim-activation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { sendEmail, getOrderConfirmationHtml, getOrderConfirmationAdminHtml } from "@/lib/email";
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true });
     }
 
-    // --- Auto-capture if APPROVED (CHECKOUT.ORDER.APPROVED event) ---
+    // --- Auto-capture nếu event là APPROVED ---
     if (orderData.status === "APPROVED") {
       console.log("[PayPal Webhook] >>> Auto-capturing APPROVED order", paypalOrderId);
       const captureRes = await fetch(
@@ -132,26 +132,25 @@ export async function POST(request: Request) {
       const captureData = await captureRes.json();
       console.log("[PayPal Webhook] <<< Auto-capture RESPONSE:", JSON.stringify(captureData).substring(0, 500));
       if (captureData.status !== "COMPLETED") {
-        console.error("[PayPal Webhook] <<< Auto-capture COMPLETED but status is:", captureData.status);
+        console.error("[PayPal Webhook] <<< Auto-capture not COMPLETED, status:", captureData.status);
         return NextResponse.json(
           { error: "Capture not completed: " + captureData.status },
           { status: 400 },
         );
       }
-      console.log("[PayPal Webhook] >>> Auto-capture succeeded → merging captured payload into orderData");
+      console.log("[PayPal Webhook] >>> Auto-capture succeeded → merging captured payload");
       Object.assign(orderData, captureData);
     } else {
-      console.log("[PayPal Webhook] orderData.status is COMPLETED, skipping auto-capture");
+      console.log("[PayPal Webhook] orderData.status is COMPLETED, skip auto-capture");
     }
 
-    // --- Parse custom_id (planId encoded as JSON) ---
+    // --- Parse custom_id (planId + email + topup metadata) ---
     const customId = orderData.purchase_units?.[0]?.custom_id;
     let planId = "";
     let isTopupMode = false;
     let selectedDuration: number | undefined;
     let topupPackageCode: string | undefined;
     let customerEmailFromFxPA = orderData.payer?.email_address || "";
-    console.log("[PayPal Webhook] custom_id raw:", customId ? String(customId).substring(0, 200) : "(empty)");
 
     try {
       const parsed = JSON.parse(customId || "{}");
@@ -162,13 +161,6 @@ export async function POST(request: Request) {
       if (typeof parsed.email === "string" && parsed.email) {
         customerEmailFromFxPA = parsed.email;
       }
-      console.log("[PayPal Webhook] custom_id parsed:", {
-        planId,
-        isTopupMode,
-        selectedDuration,
-        topupPackageCode,
-        customerEmail: customerEmailFromFxPA,
-      });
     } catch (e) {
       console.warn("[PayPal Webhook] custom_id parse failed:", e);
     }
@@ -180,7 +172,6 @@ export async function POST(request: Request) {
 
     if (isTopupMode && planId) {
       const plan = await prisma.plan.findUnique({ where: { id: planId } });
-      console.log("[PayPal Webhook] plan lookup:", planId, "→ found:", !!plan, plan?.name);
       if (plan && selectedDuration) {
         extraDays = selectedDuration - plan.durationDays;
         basePlanDays = plan.durationDays;
@@ -189,7 +180,6 @@ export async function POST(request: Request) {
             where: { planId: plan.id, isActive: true, isFlexible: true },
           });
           topupPkgCode = topupPkg?.packageCode || null;
-          console.log("[PayPal Webhook] topupPkgCode (auto):", topupPkgCode);
         }
       }
     }
@@ -197,88 +187,77 @@ export async function POST(request: Request) {
     const amount = parseFloat(
       orderData.purchase_units?.[0]?.amount?.value || "0",
     );
-    console.log("[PayPal Webhook] amount=" + amount, "extraDays=" + extraDays, "topupPackageCode=" + topupPkgCode);
 
-    // --- Upsert order record ---
-    try {
-      console.log("[PayPal Webhook] >>> upsert order WHERE esimaccessOrderId=" + paypalOrderId);
-      await prisma.order.upsert({
-        where: { esimaccessOrderId: paypalOrderId },
-        update: {},
-        create: {
-          totalAmount: amount,
-          status: "completed",
-          customerEmail: customerEmailFromFxPA,
-          customerName:
-            `${orderData.payer?.name?.given_name || ""} ${
-              orderData.payer?.name?.surname || ""
-            }`.trim(),
-          esimaccessOrderId: paypalOrderId,
-          esimaccessOrderStatus: "paid",
-          isTopupMode,
-          selectedDuration: selectedDuration || null,
-          basePlanDays,
-          extraDays: extraDays > 0 ? extraDays : null,
-          topupPackageCode,
-          orderItems: {
-            create: [
-              {
-                planId,
-                planName: orderData.purchase_units?.[0]?.description || "eSIM",
-                // Resolve packageCode for this plan at create time
-                packageCode: planId
-                  ? (await prisma.plan.findUnique({
-                      where: { id: planId },
-                    }))?.packageCode || null
-                  : null,
-                price: amount,
-                quantity: 1,
-                extraDays: extraDays > 0 ? extraDays : null,
-                basePlanDays,
-                topupPackageCode,
-              },
-            ],
-          },
-        },
-      });
-      console.log("[PayPal Webhook] <<< upsert OK");
-    } catch (dbErr: any) {
-      console.error("[PayPal Webhook] UPSERT FAILED:", dbErr.message, "code:", dbErr.code);
-      // Concurrent request already created this order → skip activation here
-      if (dbErr.code === "P2002") {
-        console.log("[PayPal Webhook] P2002 duplicate → returning alreadyProcessed");
-        return NextResponse.json({ received: true, alreadyProcessed: true });
-      }
-      throw dbErr;
-    }
-
-    // --- Activate eSIM (centralised, idempotent, atomic lock) ---
-    const order = await prisma.order.findFirst({
+    // --- Upsert order record (ASYNC PATH — trả về 200 ngay sau upsert) ---
+    const orderRow = await prisma.order.upsert({
       where: { esimaccessOrderId: paypalOrderId },
+      update: {},
+      create: {
+        totalAmount: amount,
+        status: "completed",
+        customerEmail: customerEmailFromFxPA,
+        customerName:
+          `${orderData.payer?.name?.given_name || ""} ${
+            orderData.payer?.name?.surname || ""
+          }`.trim(),
+        esimaccessOrderId: paypalOrderId,
+        esimaccessOrderStatus: "paid",
+        isTopupMode,
+        selectedDuration: selectedDuration || null,
+        basePlanDays,
+        extraDays: extraDays > 0 ? extraDays : null,
+        topupPackageCode,
+        orderItems: {
+          create: [
+            {
+              planId,
+              planName: orderData.purchase_units?.[0]?.description || "eSIM",
+              packageCode: planId
+                ? (await prisma.plan.findUnique({ where: { id: planId } }))?.packageCode || null
+                : null,
+              price: amount,
+              quantity: 1,
+              extraDays: extraDays > 0 ? extraDays : null,
+              basePlanDays,
+              topupPackageCode,
+            },
+          ],
+        },
+      },
     });
-    if (!order) {
-      console.error("[PayPal Webhook] CRITICAL: upsert reported OK but findFirst returned null for " + paypalOrderId + " — activation SKIPPED");
+
+    // ── Race-condition guard: concurrent caller might have upserted between our parse and db upsert,
+    //    or the PUT handler might be running right now and hit P2002 instead of the early-exit check.
+    //    Either way we have a valid orderRow now — return fast regardless.
+    if (!orderRow) {
+      console.error("[PayPal Webhook] CRITICAL: upsert returned null — returning 200, activation will be handled by next retry");
       return NextResponse.json({ received: true });
     }
-    console.log("[PayPal Webhook] >>> activating orderId=" + order.id + " planId=" + planId + " qty=1");
 
-    try {
-      await activateEsimAndEmailCentralized({
-        orderId: order.id,
-        planId,
-        quantity: 1,
-        isTopupMode,
-        extraDays,
-        topupPackageCode: topupPkgCode,
-      });
-      console.log("[PayPal Webhook] <<< activateEsimAndEmailCentralized OK for orderId=" + order.id);
-    } catch (activationErr) {
-      console.error(
-        "[PayPal Webhook] <<< activateEsimAndEmailCentralized FAILED:",
-        activationErr,
-      );
-    }
+    console.log("[PayPal Webhook] <<< upsert OK orderId=" + orderRow.id, "esimaccessOrderId=" + paypalOrderId, "amount=" + amount);
 
+    // ── TRẢ VỀ 200 NGAY — không await activate eSIM ──────────────────────────
+    // Kick off activation in the background; client / PayPal get 200 immediately.
+    // The activation is fully idempotent (lock + esimIccid guard) so it's safe to run
+    // concurrently with the response being sent.
+    (async () => {
+      try {
+        await activateEsimAndEmailCentralized({
+          orderId: orderRow.id,
+          planId,
+          quantity: 1,
+          isTopupMode,
+          extraDays,
+          topupPackageCode: topupPkgCode,
+        });
+        console.log("[BG] activateEsimAndEmailCentralized OK orderId=" + orderRow.id);
+      } catch (bgErr) {
+        console.error("[BG] activateEsimAndEmailCentralized FAILED orderId=" + orderRow.id + ":", bgErr);
+        _alertAdminFailed(orderRow.id, bgErr);
+      }
+    })();
+
+    // Order đã "completed" → frontend poll thấy status sẽ hiển thị QR
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("[PayPal Webhook] FATAL:", error);

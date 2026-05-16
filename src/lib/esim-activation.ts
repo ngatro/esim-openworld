@@ -285,7 +285,7 @@ async function _alertAdminTopupFailed(
 }
 
 /** Alert admin on a general activation failure. */
-async function _alertAdminFailed(orderId: number, error: unknown): Promise<void> {
+export async function _alertAdminFailed(orderId: number, error: unknown): Promise<void> {
   try {
     const adminEmail = process.env.ADMIN_EMAIL;
     if (!adminEmail) return;
