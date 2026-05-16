@@ -75,7 +75,10 @@ export async function POST(request: Request) {
     const event = JSON.parse(body);
     console.log("[PayPal Webhook]", event.event_type);
 
-    if (event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+    if (
+      event.event_type !== "PAYMENT.CAPTURE.COMPLETED" &&
+      event.event_type !== "CHECKOUT.ORDER.APPROVED"
+    ) {
       return NextResponse.json({ received: true });
     }
 
@@ -93,8 +96,42 @@ export async function POST(request: Request) {
     );
     const orderData = await verifyRes.json();
 
-    if (!verifyRes.ok || orderData.status !== "COMPLETED") {
+    if (!verifyRes.ok || (orderData.status !== "COMPLETED" && orderData.status !== "APPROVED")) {
       return NextResponse.json({ received: true });
+    }
+
+    // --- Auto-capture if APPROVED (CHECKOUT.ORDER.APPROVED event) ---
+    if (orderData.status === "APPROVED") {
+      console.log("[PayPal Webhook] Auto-capturing APPROVED order", paypalOrderId);
+      const captureRes = await fetch(
+        `${PAYPAL_API}/v2/checkout/orders/${paypalOrderId}/capture`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      if (!captureRes.ok) {
+        const capErr = await captureRes.text();
+        console.error("[PayPal Webhook] Auto-capture FAILED:", capErr);
+        return NextResponse.json(
+          { error: "Capture failed: " + capErr },
+          { status: 500 },
+        );
+      }
+      const captureData = await captureRes.json();
+      console.log("[PayPal Webhook] Auto-capture result:", captureData.status);
+      if (captureData.status !== "COMPLETED") {
+        return NextResponse.json(
+          { error: "Capture not completed: " + captureData.status },
+          { status: 400 },
+        );
+      }
+      // Replace orderData with captured payload so the rest of the handler
+      // reads COMPLETED status and captured amount
+      Object.assign(orderData, captureData);
     }
 
     // --- Parse custom_id (planId encoded as JSON) ---
