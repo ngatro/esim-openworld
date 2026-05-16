@@ -103,6 +103,8 @@ export async function POST(request: Request) {
     let isTopupMode = false;
     let selectedDuration: number | undefined;
     let topupPackageCode: string | undefined;
+    // Email from PayPal's payer object (may be empty for guest / sandbox checkout)
+    let customerEmailFromFxPA = orderData.payer?.email_address || "";
 
     try {
       const parsed = JSON.parse(customId || "{}");
@@ -110,6 +112,10 @@ export async function POST(request: Request) {
       isTopupMode = parsed.isTopupMode || false;
       selectedDuration = parsed.selectedDuration;
       topupPackageCode = parsed.topupPackageCode;
+      // Fallback: custom_id carries the email when PayPal's payer.email_address is unavailable
+      if (parsed.email && typeof parsed.email === "string") {
+        customerEmailFromFxPA = parsed.email;
+      }
     } catch {
       /* best-effort */
     }
@@ -145,7 +151,7 @@ export async function POST(request: Request) {
         create: {
           totalAmount: amount,
           status: "completed",
-          customerEmail: orderData.payer?.email_address || "",
+          customerEmail: customerEmailFromFxPA,
           customerName:
             `${orderData.payer?.name?.given_name || ""} ${
               orderData.payer?.name?.surname || ""
@@ -266,6 +272,11 @@ export async function PUT(request: Request) {
       include: { orderItems: true },
     });
 
+    // Best-effort email recovery: extract from URL params if the current query used a guest email param
+    // (avoids a silent mismatch when 'customerEmail' is empty on the order record)
+    const queryCustomerEmail = new URL(request.url).searchParams.get("email") || "";
+    const effectiveEmail = existingOrder?.customerEmail || queryCustomerEmail || "";
+
     if (existingOrder) {
       console.log("[PayPal Confirm] Order already exists: " + existingOrder.id);
       return NextResponse.json({
@@ -292,10 +303,25 @@ export async function PUT(request: Request) {
       );
     }
 
+    // Best-effort email recovery: parse customerEmail from custom_id (stored by POST /api/payment/paypal)
+    // when PayPal does not return payer.email_address (sandbox / guest checkout)
+    let customerEmailFromCustomId: string | null = null;
+    try {
+      const idCustomId = verifyData.purchase_units?.[0]?.custom_id;
+      if (typeof idCustomId === "string") {
+        const idParsed = JSON.parse(idCustomId);
+        if (typeof idParsed.email === "string" && idParsed.email) {
+          customerEmailFromCustomId = idParsed.email;
+        }
+      }
+    } catch {
+      /* best-effort */
+    }
+
     // --- Idempotency key for capture ---
     const captureIdempotencyKey = `capture-${orderId}-${Date.now()}`;
 
-    // Amount from PayPal response (always present — either direct or after capture)
+    // --- Amount from PayPal response ---
     const amount = parseFloat(
       verifyData.purchase_units?.[0]?.amount?.value || "0",
     );
@@ -390,8 +416,10 @@ export async function PUT(request: Request) {
           data: {
             totalAmount: amount,
             status: "completed",
-            customerEmail:
-              verifyData.payer?.email_address || pendingOrder.customerEmail || "",
+              customerEmail:
+                verifyData.payer?.email_address ||
+                pendingOrder.customerEmail ||
+                "",
             customerName:
               `${verifyData.payer?.name?.given_name || ""} ${
                 verifyData.payer?.name?.surname || ""
@@ -435,7 +463,7 @@ export async function PUT(request: Request) {
           create: {
             totalAmount: amount,
             status: "completed",
-            customerEmail: verifyData.payer?.email_address || "",
+            customerEmail: verifyData.payer?.email_address || customerEmailFromCustomId || "",
             customerName:
               `${verifyData.payer?.name?.given_name || ""} ${
                 verifyData.payer?.name?.surname || ""
@@ -473,7 +501,7 @@ export async function PUT(request: Request) {
         create: {
           totalAmount: amount,
           status: "completed",
-          customerEmail: verifyData.payer?.email_address || "",
+            customerEmail: verifyData.payer?.email_address || customerEmailFromCustomId || "",
           customerName:
             `${verifyData.payer?.name?.given_name || ""} ${
               verifyData.payer?.name?.surname || ""
