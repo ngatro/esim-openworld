@@ -253,7 +253,8 @@
     "confirmOrder": "Confirm Order",
     "subtotal": "Subtotal",
     "processingFee": "Processing Fee",
-    "grandTotal": "Grand Total"
+    "grandTotal": "Grand Total",
+    "continueBrowsing":"Continue Browsing"
   },
   "cart": {
     "title": "Shopping Cart",

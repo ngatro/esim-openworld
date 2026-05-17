@@ -253,7 +253,8 @@
     "confirmOrder": "Bestellung bestätigen",
     "subtotal": "Zwischensumme",
     "processingFee": "Bearbeitungsgebühr",
-    "grandTotal": "Gesamtsumme"
+    "grandTotal": "Gesamtsumme",
+    "continueBrowsing":"Weiter einkaufen"
   },
   "cart": {
     "title": "Warenkorb",

@@ -253,7 +253,8 @@
     "confirmOrder": "Confirmer la commande",
     "subtotal": "Sous-total",
     "processingFee": "Frais de traitement",
-    "grandTotal": "Total général"
+    "grandTotal": "Total général",
+    "continueBrowsing": "Continuer les achats"
   },
   "cart": {
     "title": "Panier",

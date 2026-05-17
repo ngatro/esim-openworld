@@ -253,7 +253,8 @@
     "confirmOrder": "Xác nhận đơn hàng",
     "subtotal": "Tạm tính",
     "processingFee": "Phí xử lý",
-    "grandTotal": "Tổng thanh toán"
+    "grandTotal": "Tổng thanh toán",
+    "continueBrowsing":"Tiếp tục mua sắm"
   },
   "cart": {
     "title": "Giỏ hàng",

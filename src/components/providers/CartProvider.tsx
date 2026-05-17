@@ -86,7 +86,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (user && mounted && localItems.length > 0) {
       syncLocalToServer();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]); // Chỉ chạy khi user thay đổi (cố ý)
 
   const syncLocalToServer = useCallback(async () => {
